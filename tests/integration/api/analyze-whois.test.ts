@@ -19,8 +19,19 @@ jest.mock('../../../src/lib/analysis/whois-service', () => ({
   }
 }))
 
+// Mock the SSL service to isolate WHOIS testing  
+jest.mock('../../../src/lib/analysis/ssl-service', () => ({
+  defaultSSLService: {
+    analyzeCertificate: jest.fn()
+  }
+}))
+
+// Import the mocked modules
 import whoisServiceModule from '../../../src/lib/analysis/whois-service'
+import sslServiceModule from '../../../src/lib/analysis/ssl-service'
+
 const { defaultWhoisService } = whoisServiceModule as jest.Mocked<typeof whoisServiceModule>
+const { defaultSSLService } = sslServiceModule as jest.Mocked<typeof sslServiceModule>
 
 // Helper function to create a mock NextRequest
 function createMockRequest(body: unknown): NextRequest {
@@ -39,6 +50,40 @@ function createMockRequest(body: unknown): NextRequest {
 describe('/api/analyze Integration Tests with WHOIS', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    
+    // Setup WHOIS mock after clearing
+    defaultWhoisService.analyzeDomain.mockResolvedValue({
+      success: true,
+      domain: 'example.com',
+      data: {
+        ageInDays: 1000,
+        registrationDate: new Date('2021-01-01'),
+        expirationDate: new Date('2025-01-01'),
+        registrar: 'Test Registrar',
+        score: 0.2,
+        confidence: 0.9,
+        riskFactors: []
+      },
+      fromCache: false,
+      processingTimeMs: 100
+    })
+    
+    // Setup default SSL mock to avoid interference
+    defaultSSLService.analyzeCertificate.mockResolvedValue({
+      success: true,
+      domain: 'example.com',
+      port: 443,
+      data: {
+        domain: 'example.com',
+        certificateType: 'DV',
+        certificateAuthority: { name: 'Let\'s Encrypt', normalized: 'letsencrypt', trustScore: 0.8, isWellKnown: true, knownForIssues: false, validationLevel: 'DV' },
+        score: 10,
+        confidence: 0.9,
+        riskFactors: []
+      },
+      fromCache: false,
+      processingTimeMs: 100
+    })
   })
 
   describe('POST /api/analyze with WHOIS integration', () => {
@@ -70,7 +115,7 @@ describe('/api/analyze Integration Tests with WHOIS', () => {
         ]
       }
 
-      defaultWhoisService.analyzeDomain.mockResolvedValue({
+      defaultWhoisService.analyzeDomain.mockResolvedValueOnce({
         success: true,
         domain: 'example.com',
         data: mockWhoisAnalysis,

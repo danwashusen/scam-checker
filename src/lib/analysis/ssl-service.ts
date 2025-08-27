@@ -210,7 +210,7 @@ export class SSLService {
   }> {
     return new Promise((resolve, reject) => {
       const startTime = Date.now()
-      const handshakeStartTime = Date.now()
+      let handshakeStartTime = Date.now()
       
       const socket = tls.connect({
         host: domain,

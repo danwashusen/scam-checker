@@ -23,13 +23,21 @@ jest.mock('next/server', () => {
 })
 
 // Mock the SSL service for integration tests
-jest.mock('../../../src/lib/analysis/ssl-service')
+jest.mock('../../../src/lib/analysis/ssl-service', () => ({
+  defaultSSLService: {
+    analyzeCertificate: jest.fn()
+  }
+}))
 
 import mockSSLServiceModule from '../../../src/lib/analysis/ssl-service'
 const mockSSLService = mockSSLServiceModule as jest.Mocked<typeof mockSSLServiceModule>
 
 // Mock the WHOIS service to isolate SSL testing
-jest.mock('../../../src/lib/analysis/whois-service')
+jest.mock('../../../src/lib/analysis/whois-service', () => ({
+  defaultWhoisService: {
+    analyzeDomain: jest.fn()
+  }
+}))
 import mockWhoisServiceModule from '../../../src/lib/analysis/whois-service'
 const mockWhoisService = mockWhoisServiceModule as jest.Mocked<typeof mockWhoisServiceModule>
 
@@ -38,22 +46,20 @@ describe('SSL Certificate Analysis Integration', () => {
     jest.clearAllMocks()
     
     // Setup default WHOIS mock to avoid interference
-    mockWhoisService.defaultWhoisService = {
-      analyzeDomain: jest.fn().mockResolvedValue({
-        success: true,
-        domain: 'example.com',
-        data: {
-          ageInDays: 1000,
-          registrationDate: new Date('2021-01-01'),
-          expirationDate: new Date('2025-01-01'),
-          registrar: 'Test Registrar',
-          score: 0.2,
-          confidence: 0.9,
-          riskFactors: []
-        },
-        fromCache: false
-      })
-    }
+    mockWhoisService.defaultWhoisService.analyzeDomain.mockResolvedValue({
+      success: true,
+      domain: 'example.com',
+      data: {
+        ageInDays: 1000,
+        registrationDate: new Date('2021-01-01'),
+        expirationDate: new Date('2025-01-01'),
+        registrar: 'Test Registrar',
+        score: 0.2,
+        confidence: 0.9,
+        riskFactors: []
+      },
+      fromCache: false
+    })
   })
 
   describe('HTTPS URL SSL Analysis', () => {
@@ -107,9 +113,7 @@ describe('SSL Certificate Analysis Integration', () => {
         processingTimeMs: 150
       }
 
-      mockSSLService.defaultSSLService = {
-        analyzeCertificate: jest.fn().mockResolvedValue(mockSSLAnalysis)
-      }
+      mockSSLService.defaultSSLService.analyzeCertificate.mockResolvedValue(mockSSLAnalysis)
 
       const response = await POST(
         new NextRequest('http://localhost:3000/api/analyze', {
@@ -216,9 +220,7 @@ describe('SSL Certificate Analysis Integration', () => {
         processingTimeMs: 120
       }
 
-      mockSSLService.defaultSSLService = {
-        analyzeCertificate: jest.fn().mockResolvedValue(mockSSLAnalysis)
-      }
+      mockSSLService.defaultSSLService.analyzeCertificate.mockResolvedValue(mockSSLAnalysis)
 
       const response = await POST(
         new NextRequest('http://localhost:3000/api/analyze', {
@@ -311,9 +313,7 @@ describe('SSL Certificate Analysis Integration', () => {
         processingTimeMs: 180
       }
 
-      mockSSLService.defaultSSLService = {
-        analyzeCertificate: jest.fn().mockResolvedValue(mockSSLAnalysis)
-      }
+      mockSSLService.defaultSSLService.analyzeCertificate.mockResolvedValue(mockSSLAnalysis)
 
       const response = await POST(
         new NextRequest('http://localhost:3000/api/analyze', {
@@ -355,9 +355,7 @@ describe('SSL Certificate Analysis Integration', () => {
         processingTimeMs: 200
       }
 
-      mockSSLService.defaultSSLService = {
-        analyzeCertificate: jest.fn().mockResolvedValue(mockSSLError)
-      }
+      mockSSLService.defaultSSLService.analyzeCertificate.mockResolvedValue(mockSSLError)
 
       const response = await POST(
         new NextRequest('http://localhost:3000/api/analyze', {
@@ -400,9 +398,7 @@ describe('SSL Certificate Analysis Integration', () => {
         processingTimeMs: 5000
       }
 
-      mockSSLService.defaultSSLService = {
-        analyzeCertificate: jest.fn().mockResolvedValue(mockSSLError)
-      }
+      mockSSLService.defaultSSLService.analyzeCertificate.mockResolvedValue(mockSSLError)
 
       const response = await POST(
         new NextRequest('http://localhost:3000/api/analyze', {
@@ -473,9 +469,7 @@ describe('SSL Certificate Analysis Integration', () => {
         processingTimeMs: 5
       }
 
-      mockSSLService.defaultSSLService = {
-        analyzeCertificate: jest.fn().mockResolvedValue(mockSSLAnalysis)
-      }
+      mockSSLService.defaultSSLService.analyzeCertificate.mockResolvedValue(mockSSLAnalysis)
 
       const response = await POST(
         new NextRequest('http://localhost:3000/api/analyze', {
@@ -500,9 +494,7 @@ describe('SSL Certificate Analysis Integration', () => {
 
   describe('HTTP URL Handling', () => {
     it('should not perform SSL analysis for HTTP URLs', async () => {
-      mockSSLService.defaultSSLService = {
-        analyzeCertificate: jest.fn()
-      }
+      // SSL should not be called for this test
 
       const response = await POST(
         new NextRequest('http://localhost:3000/api/analyze', {
@@ -542,9 +534,7 @@ describe('SSL Certificate Analysis Integration', () => {
         error: { type: 'invalid_domain', message: 'IP addresses not supported' }
       })
 
-      mockSSLService.defaultSSLService = {
-        analyzeCertificate: jest.fn()
-      }
+      // SSL should not be called for this test
 
       const response = await POST(
         new NextRequest('http://localhost:3000/api/analyze', {
@@ -576,9 +566,7 @@ describe('SSL Certificate Analysis Integration', () => {
 
   describe('Error Handling', () => {
     it('should handle unexpected SSL service errors', async () => {
-      mockSSLService.defaultSSLService = {
-        analyzeCertificate: jest.fn().mockRejectedValue(new Error('Unexpected SSL service error'))
-      }
+      mockSSLService.defaultSSLService.analyzeCertificate.mockRejectedValue(new Error('Unexpected SSL service error'))
 
       const response = await POST(
         new NextRequest('http://localhost:3000/api/analyze', {
@@ -631,9 +619,7 @@ describe('SSL Certificate Analysis Integration', () => {
         processingTimeMs: 200
       }
 
-      mockSSLService.defaultSSLService = {
-        analyzeCertificate: jest.fn().mockResolvedValue(mockSSLAnalysis)
-      }
+      mockSSLService.defaultSSLService.analyzeCertificate.mockResolvedValue(mockSSLAnalysis)
 
       const response = await POST(
         new NextRequest('http://localhost:3000/api/analyze', {
