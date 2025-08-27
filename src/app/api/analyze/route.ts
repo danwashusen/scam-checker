@@ -6,10 +6,12 @@ import { sanitizeForLogging } from '../../../lib/validation/url-sanitizer'
 import { validateAnalysisRequest, formatValidationError } from '../../../lib/validation/schemas'
 import { defaultWhoisService } from '../../../lib/analysis/whois-service'
 import { defaultSSLService } from '../../../lib/analysis/ssl-service'
+import { defaultReputationService } from '../../../lib/analysis/reputation-service'
 import { logger } from '../../../lib/logger'
 import type { URLAnalysisResult, URLValidationOptions, SanitizationOptions } from '../../../types/url'
 import type { DomainAgeAnalysis } from '../../../types/whois'
 import type { SSLCertificateAnalysis } from '../../../types/ssl'
+import type { ReputationAnalysis } from '../../../types/reputation'
 
 interface RiskFactor {
   type: string
@@ -38,6 +40,15 @@ interface AnalysisResult {
     daysUntilExpiry: number | null
     issuedDate: string | null
     analysis: SSLCertificateAnalysis | null
+    fromCache: boolean
+    error?: string
+  }
+  reputation?: {
+    isClean: boolean
+    riskLevel: 'low' | 'medium' | 'high'
+    threatCount: number
+    threatTypes: string[]
+    analysis: ReputationAnalysis | null
     fromCache: boolean
     error?: string
   }
@@ -211,6 +222,7 @@ async function generateAnalysisWithAll(analysis: URLAnalysisResult): Promise<Ana
   let totalRiskScore = 0
   let domainAge: AnalysisResult['domainAge'] = undefined
   let sslCertificate: AnalysisResult['sslCertificate'] = undefined
+  let reputation: AnalysisResult['reputation'] = undefined
 
   // Perform WHOIS analysis if we have a valid domain (not IP)
   if (parsed && !parsed.isIP) {
@@ -369,6 +381,86 @@ async function generateAnalysisWithAll(analysis: URLAnalysisResult): Promise<Ana
       totalRiskScore += 0.1
     }
   }
+
+  // Perform reputation analysis using Google Safe Browsing
+  try {
+    const reputationResult = await defaultReputationService.analyzeURL(analysis.final)
+    
+    if (reputationResult.success && reputationResult.data) {
+      const reputationAnalysis = reputationResult.data
+      
+      reputation = {
+        isClean: reputationAnalysis.isClean,
+        riskLevel: reputationAnalysis.riskLevel,
+        threatCount: reputationAnalysis.threatMatches.length,
+        threatTypes: reputationAnalysis.threatMatches.map(match => match.threatType),
+        analysis: reputationAnalysis,
+        fromCache: reputationResult.fromCache
+      }
+
+      // Add reputation-based risk factors
+      reputationAnalysis.riskFactors.forEach(factor => {
+        // Convert reputation scores (0-100) to normalized scores (0-1)
+        const normalizedScore = factor.score / 100
+        factors.push({
+          type: `reputation-${factor.type}`,
+          score: normalizedScore,
+          description: factor.description
+        })
+        totalRiskScore += normalizedScore
+      })
+
+      logger.info('Reputation analysis completed', {
+        url: analysis.final,
+        isClean: reputationAnalysis.isClean,
+        riskLevel: reputationAnalysis.riskLevel,
+        threatCount: reputationAnalysis.threatMatches.length,
+        score: reputationAnalysis.score,
+        fromCache: reputationResult.fromCache
+      })
+    } else {
+      // Reputation analysis failed, add fallback risk factor
+      reputation = {
+        isClean: true, // Default to clean when analysis fails
+        riskLevel: 'low',
+        threatCount: 0,
+        threatTypes: [],
+        analysis: null,
+        fromCache: false,
+        error: reputationResult.error?.message || 'Reputation analysis failed'
+      }
+      
+      factors.push({
+        type: 'reputation-unavailable',
+        score: 0.1, // Low risk when reputation analysis fails
+        description: 'Could not analyze URL reputation via Google Safe Browsing'
+      })
+      totalRiskScore += 0.1
+    }
+  } catch (error: unknown) {
+    // Handle unexpected reputation errors
+    reputation = {
+      isClean: true, // Default to clean when analysis fails
+      riskLevel: 'low',
+      threatCount: 0,
+      threatTypes: [],
+      analysis: null,
+      fromCache: false,
+      error: error instanceof Error ? error.message : 'Unexpected reputation analysis error'
+    }
+    
+    logger.warn('Reputation analysis error', {
+      url: analysis.final,
+      error: error as Error
+    })
+    
+    factors.push({
+      type: 'reputation-error',
+      score: 0.05, // Minimal risk for system errors
+      description: 'Reputation analysis encountered an error'
+    })
+    totalRiskScore += 0.05
+  }
   
   // Domain analysis factor
   if (parsed) {
@@ -452,7 +544,7 @@ async function generateAnalysisWithAll(analysis: URLAnalysisResult): Promise<Ana
   }
   
   // Generate explanation
-  const explanation = generateExplanation(riskLevel, factors, analysis, domainAge, sslCertificate)
+  const explanation = generateExplanation(riskLevel, factors, analysis, domainAge, sslCertificate, reputation)
   
   return {
     url: analysis.final,
@@ -463,6 +555,7 @@ async function generateAnalysisWithAll(analysis: URLAnalysisResult): Promise<Ana
     timestamp: new Date().toISOString(),
     domainAge,
     sslCertificate,
+    reputation,
   }
 }
 
@@ -471,7 +564,8 @@ function generateExplanation(
   factors: RiskFactor[], 
   analysis: URLAnalysisResult,
   domainAge?: AnalysisResult['domainAge'],
-  sslCertificate?: AnalysisResult['sslCertificate']
+  sslCertificate?: AnalysisResult['sslCertificate'],
+  reputation?: AnalysisResult['reputation']
 ): string {
   const positiveFactors = factors.filter(f => f.score === 0)
   const negativeFactors = factors.filter(f => f.score > 0)
@@ -535,6 +629,26 @@ function generateExplanation(
   } else if (sslCertificate?.error && analysis.final.startsWith('https:')) {
     explanation += 'SSL certificate analysis was not available, which may indicate connection or certificate issues. '
   }
+
+  // Add reputation context
+  if (reputation?.analysis && !reputation.analysis.isClean) {
+    const threatTypes = reputation.threatTypes.join(', ').toLowerCase()
+    if (reputation.threatCount === 1) {
+      explanation += `Google Safe Browsing flagged this URL for ${threatTypes}. `
+    } else {
+      explanation += `Google Safe Browsing flagged this URL for multiple threats including ${threatTypes}. `
+    }
+    
+    if (reputation.riskLevel === 'high') {
+      explanation += 'This is a serious security threat and the URL should be avoided. '
+    } else if (reputation.riskLevel === 'medium') {
+      explanation += 'This indicates potential security risks that require caution. '
+    }
+  } else if (reputation?.analysis?.isClean) {
+    explanation += 'Google Safe Browsing confirms this URL is clean with no known threats. '
+  } else if (reputation?.error) {
+    explanation += 'URL reputation analysis was not available from Google Safe Browsing. '
+  }
   
   if (negativeFactors.length > 0) {
     const topRisks = negativeFactors
@@ -595,6 +709,9 @@ export async function GET() {
         'Risk assessment based on URL characteristics',
         'Domain age analysis via WHOIS data',
         'SSL/TLS certificate security analysis',
+        'Google Safe Browsing API integration for threat detection',
+        'Malware, phishing, and unwanted software detection',
+        'Authoritative reputation scoring with 24-hour caching',
         'Cached WHOIS lookups for performance',
         'Domain registration pattern analysis',
         'Registrar reputation scoring',

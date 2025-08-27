@@ -49,7 +49,7 @@ Scam Checker Web App (Final)
   - External APIs:
     - Node.js WHOIS library for domain age
     - SSL Labs or similar for cert checking
-    - VirusTotal/URLVoid for reputation
+    - Google Safe Browsing API for reputation
     - OpenAI/Claude API for content analysis
   - Caching: In-memory cache for API results (no database)
   - Testing: Jest for unit and integration tests

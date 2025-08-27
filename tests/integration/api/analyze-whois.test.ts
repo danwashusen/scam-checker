@@ -31,9 +31,17 @@ jest.mock('../../../src/lib/analysis/ssl-service', () => ({
   }
 }))
 
+// Mock the reputation service to isolate WHOIS testing
+jest.mock('../../../src/lib/analysis/reputation-service', () => ({
+  defaultReputationService: {
+    analyzeURL: jest.fn()
+  }
+}))
+
 // Import the mocked modules
 import * as whoisServiceModule from '../../../src/lib/analysis/whois-service'
 import * as sslServiceModule from '../../../src/lib/analysis/ssl-service'
+import * as reputationServiceModule from '../../../src/lib/analysis/reputation-service'
 import type { 
   WhoisLookupResult, 
   WhoisLookupOptions, 
@@ -54,6 +62,7 @@ type MockedSSLFunction = jest.MockedFunction<(domainInput: string | ParsedURL, o
 
 const { defaultWhoisService } = whoisServiceModule as jest.Mocked<typeof whoisServiceModule>
 const { defaultSSLService } = sslServiceModule as jest.Mocked<typeof sslServiceModule>
+const { defaultReputationService } = reputationServiceModule as jest.Mocked<typeof reputationServiceModule>
 
 // Helper function to create a mock NextRequest
 function createMockRequest(body: unknown): NextRequest {
@@ -153,6 +162,26 @@ describe('/api/analyze Integration Tests with WHOIS', () => {
       data: sslData,
       fromCache: false,
       processingTimeMs: 100
+    })
+    
+    // Setup default reputation mock to return clean result
+    ;(defaultReputationService.analyzeURL as jest.MockedFunction<typeof defaultReputationService.analyzeURL>).mockResolvedValue({
+      success: true,
+      fromCache: false,
+      data: {
+        url: 'https://example.com',
+        isClean: true,
+        threatMatches: [],
+        riskFactors: [{
+          type: 'reputation-clean',
+          score: 0,
+          description: 'URL is clean according to Google Safe Browsing'
+        }],
+        score: 0,
+        riskLevel: 'low',
+        confidence: 0.95,
+        timestamp: new Date()
+      }
     })
   })
 
