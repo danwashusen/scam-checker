@@ -47,7 +47,7 @@ Scam Checker Web App (Final)
     - Lucide for icons
   - Backend: Next.js API routes for analysis endpoints
   - External APIs:
-    - WHOIS API for domain age
+    - Node.js WHOIS library for domain age
     - SSL Labs or similar for cert checking
     - VirusTotal/URLVoid for reputation
     - OpenAI/Claude API for content analysis

@@ -3,14 +3,14 @@
 ## User Story
 
 As a **scam detection system**,
-I want **to retrieve and analyze domain registration data via WHOIS APIs**,
+I want **to retrieve and analyze domain registration data via Node.js WHOIS library**,
 So that **I can assess domain age and registration patterns as risk indicators**.
 
 ## Story Context
 
 **System Integration:**
 - Integrates with: Story 1-1 URL parsing system
-- Technology: External WHOIS API integration, Next.js API routes
+- Technology: Node.js WHOIS library integration, Next.js API routes
 - Follows pattern: External API integration with error handling
 - Touch points: Risk scoring system, caching layer
 
@@ -18,11 +18,11 @@ So that **I can assess domain age and registration patterns as risk indicators**
 
 **Functional Requirements:**
 
-1. **WHOIS API Integration**: System integrates with reliable WHOIS data provider
-   - Primary provider: WHOIS XML API or similar service
-   - Fallback provider for high availability
-   - Rate limiting compliance with provider limits
-   - API key management and rotation support
+1. **WHOIS Library Integration**: System integrates with Node.js WHOIS library
+   - Direct WHOIS protocol queries to authoritative servers
+   - Built-in retry logic for network timeouts
+   - Support for multiple TLD WHOIS servers
+   - No external API dependencies or costs
 
 2. **Domain Age Calculation**: System calculates accurate domain age metrics
    - Creation date extraction from WHOIS data
@@ -52,11 +52,11 @@ So that **I can assess domain age and registration patterns as risk indicators**
 
 ## Technical Notes
 
-- **Primary API**: WHOIS XML API or IP-API for WHOIS data
-- **Fallback Strategy**: Multiple provider support with automatic failover
+- **Primary Library**: Node.js WHOIS library for direct WHOIS queries
+- **Fallback Strategy**: Built-in WHOIS server failover within library
 - **Caching Strategy**: In-memory cache with 24-hour TTL for WHOIS data
-- **Data Processing**: Extract and normalize key fields across different response formats
-- **Rate Limiting**: Respect API provider limits with request queuing
+- **Data Processing**: Extract and normalize key fields from WHOIS responses
+- **Query Management**: Built-in timeout and retry handling
 
 ## Definition of Done
 
@@ -73,8 +73,8 @@ So that **I can assess domain age and registration patterns as risk indicators**
 
 ## Risk Mitigation
 
-- **Primary Risk**: WHOIS API provider outages affecting domain age analysis
-- **Mitigation**: Multiple provider fallback system and cached data usage
+- **Primary Risk**: WHOIS server timeouts affecting domain age analysis
+- **Mitigation**: Library built-in retry logic and cached data usage
 - **Rollback**: System operates without domain age scoring if all providers fail
 
 ## Testing Requirements

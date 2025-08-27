@@ -18,7 +18,7 @@ This epic establishes the foundational technical capabilities needed to analyze 
 
 **What's being built:**
 - URL validation and parsing system
-- WHOIS API integration for domain age analysis
+- WHOIS library integration for domain age analysis
 - SSL certificate quality assessment
 - Basic reputation checking via VirusTotal/URLVoid APIs
 - Caching layer for API results
