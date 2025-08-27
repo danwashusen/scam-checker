@@ -29,16 +29,30 @@ jest.mock('../../../src/lib/analysis/ssl-service', () => ({
   }
 }))
 
-import mockSSLServiceModule from '../../../src/lib/analysis/ssl-service'
-const mockSSLService = mockSSLServiceModule as jest.Mocked<typeof mockSSLServiceModule>
-
 // Mock the WHOIS service to isolate SSL testing
 jest.mock('../../../src/lib/analysis/whois-service', () => ({
   defaultWhoisService: {
     analyzeDomain: jest.fn()
   }
 }))
-import mockWhoisServiceModule from '../../../src/lib/analysis/whois-service'
+
+import * as mockSSLServiceModule from '../../../src/lib/analysis/ssl-service'
+import * as mockWhoisServiceModule from '../../../src/lib/analysis/whois-service'
+import type { WhoisLookupResult, WhoisLookupOptions, DomainAgeAnalysis } from '../../../src/types/whois'
+import type { 
+  SSLAnalysisResult, 
+  SSLConnectionOptions, 
+  SSLCertificateAnalysis,
+  SSLSecurityAssessment,
+  SSLValidationResult,
+  CertificateAuthorityInfo
+} from '../../../src/types/ssl'
+import type { ParsedURL } from '../../../src/lib/validation/url-parser'
+
+type MockedWhoisFunction = jest.MockedFunction<(domainInput: string | ParsedURL, options?: WhoisLookupOptions) => Promise<WhoisLookupResult>>
+type MockedSSLFunction = jest.MockedFunction<(domainInput: string | ParsedURL, options?: SSLConnectionOptions) => Promise<SSLAnalysisResult>>
+
+const mockSSLService = mockSSLServiceModule as jest.Mocked<typeof mockSSLServiceModule>
 const mockWhoisService = mockWhoisServiceModule as jest.Mocked<typeof mockWhoisServiceModule>
 
 describe('SSL Certificate Analysis Integration', () => {
@@ -46,74 +60,90 @@ describe('SSL Certificate Analysis Integration', () => {
     jest.clearAllMocks()
     
     // Setup default WHOIS mock to avoid interference
-    mockWhoisService.defaultWhoisService.analyzeDomain.mockResolvedValue({
+    const defaultWhoisData: DomainAgeAnalysis = {
+      ageInDays: 1000,
+      registrationDate: new Date('2021-01-01'),
+      expirationDate: new Date('2025-01-01'),
+      updatedDate: new Date('2023-01-01'),
+      registrar: 'Test Registrar',
+      nameservers: ['ns1.example.com', 'ns2.example.com'],
+      status: ['active'],
+      score: 0.2,
+      confidence: 0.9,
+      privacyProtected: false,
+      registrantCountry: 'US',
+      riskFactors: []
+    };
+    
+    (mockWhoisService.defaultWhoisService.analyzeDomain as MockedWhoisFunction).mockResolvedValue({
       success: true,
       domain: 'example.com',
-      data: {
-        ageInDays: 1000,
-        registrationDate: new Date('2021-01-01'),
-        expirationDate: new Date('2025-01-01'),
-        registrar: 'Test Registrar',
-        score: 0.2,
-        confidence: 0.9,
-        riskFactors: []
-      },
-      fromCache: false
+      data: defaultWhoisData,
+      fromCache: false,
+      processingTimeMs: 100
     })
   })
 
   describe('HTTPS URL SSL Analysis', () => {
     it('should analyze SSL certificate for valid HTTPS URL', async () => {
-      const mockSSLAnalysis = {
+      const certificateAuthority: CertificateAuthorityInfo = {
+        name: 'DigiCert Inc',
+        normalized: 'digicert',
+        trustScore: 0.9,
+        isWellKnown: true,
+        knownForIssues: false,
+        validationLevel: 'OV'
+      }
+
+      const security: SSLSecurityAssessment = {
+        encryptionStrength: 'strong',
+        keySize: 2048,
+        keyAlgorithm: 'RSA',
+        signatureAlgorithm: 'SHA-256 with RSA',
+        isModernCrypto: true,
+        hasWeakCrypto: false,
+        supportsModernTLS: true,
+        vulnerabilities: []
+      }
+
+      const validation: SSLValidationResult = {
+        isValid: true,
+        isExpired: false,
+        isSelfSigned: false,
+        isRevoked: null,
+        chainValid: true,
+        domainMatch: true,
+        sanMatch: true,
+        validationErrors: []
+      }
+
+      const sslData: SSLCertificateAnalysis = {
+        domain: 'example.com',
+        issuedDate: new Date('2023-01-15'),
+        expirationDate: new Date('2024-01-15'),
+        daysUntilExpiry: 200,
+        certificateAge: 150,
+        certificateType: 'OV',
+        certificateAuthority,
+        security,
+        validation,
+        score: 15,
+        confidence: 0.95,
+        riskFactors: [],
+        subjectAlternativeNames: ['example.com', 'www.example.com'],
+        commonName: 'example.com'
+      }
+
+      const mockSSLAnalysisBasic: SSLAnalysisResult = {
         success: true,
         domain: 'example.com',
         port: 443,
-        data: {
-          domain: 'example.com',
-          issuedDate: new Date('2023-01-15'),
-          expirationDate: new Date('2024-01-15'),
-          daysUntilExpiry: 200,
-          certificateAge: 150,
-          certificateType: 'OV',
-          certificateAuthority: {
-            name: 'DigiCert Inc',
-            normalized: 'digicert',
-            trustScore: 0.9,
-            isWellKnown: true,
-            knownForIssues: false,
-            validationLevel: 'OV'
-          },
-          security: {
-            encryptionStrength: 'strong',
-            keySize: 2048,
-            keyAlgorithm: 'RSA',
-            signatureAlgorithm: 'SHA-256 with RSA',
-            isModernCrypto: true,
-            hasWeakCrypto: false,
-            supportsModernTLS: true,
-            vulnerabilities: []
-          },
-          validation: {
-            isValid: true,
-            isExpired: false,
-            isSelfSigned: false,
-            isRevoked: null,
-            chainValid: true,
-            domainMatch: true,
-            sanMatch: true,
-            validationErrors: []
-          },
-          score: 15,
-          confidence: 0.95,
-          riskFactors: [],
-          subjectAlternativeNames: ['example.com', 'www.example.com'],
-          commonName: 'example.com'
-        },
+        data: sslData,
         fromCache: false,
         processingTimeMs: 150
-      }
+      };
 
-      mockSSLService.defaultSSLService.analyzeCertificate.mockResolvedValue(mockSSLAnalysis)
+      (mockSSLService.defaultSSLService.analyzeCertificate as MockedSSLFunction).mockResolvedValue(mockSSLAnalysisBasic)
 
       const response = await POST(
         new NextRequest('http://localhost:3000/api/analyze', {
@@ -147,80 +177,86 @@ describe('SSL Certificate Analysis Integration', () => {
     })
 
     it('should handle SSL certificate with risk factors', async () => {
-      const mockSSLAnalysis = {
+      const security: SSLSecurityAssessment = {
+        encryptionStrength: 'weak',
+        keySize: 1024,
+        keyAlgorithm: 'RSA',
+        signatureAlgorithm: 'SHA-1 with RSA',
+        isModernCrypto: false,
+        hasWeakCrypto: true,
+        supportsModernTLS: false,
+        vulnerabilities: ['Weak cryptographic parameters']
+      }
+
+      const validation: SSLValidationResult = {
+        isValid: false,
+        isExpired: false,
+        isSelfSigned: true,
+        isRevoked: null,
+        chainValid: false,
+        domainMatch: true,
+        sanMatch: false,
+        validationErrors: [
+          {
+            type: 'signature',
+            message: 'Certificate is self-signed',
+            severity: 'high'
+          }
+        ]
+      }
+
+      const sslData: SSLCertificateAnalysis = {
+        domain: 'example.com',
+        issuedDate: new Date('2023-12-01'),
+        expirationDate: new Date('2024-01-01'),
+        daysUntilExpiry: 15,
+        certificateAge: 20,
+        certificateType: 'self-signed',
+        certificateAuthority: null,
+        security,
+        validation,
+        score: 85,
+        confidence: 0.9,
+        riskFactors: [
+          {
+            type: 'age',
+            description: 'Recently issued certificate (less than 30 days old)',
+            score: 25,
+            severity: 'medium'
+          },
+          {
+            type: 'expiry',
+            description: 'Certificate expires soon (within 30 days)',
+            score: 20,
+            severity: 'medium'
+          },
+          {
+            type: 'authority',
+            description: 'Self-signed certificate',
+            score: 50,
+            severity: 'high'
+          },
+          {
+            type: 'security',
+            description: 'Weak cryptographic parameters',
+            score: 30,
+            severity: 'high'
+          }
+        ],
+        subjectAlternativeNames: [],
+        commonName: 'example.com'
+      }
+
+      const mockSSLAnalysis: SSLAnalysisResult = {
         success: true,
         domain: 'example.com',
         port: 443,
-        data: {
-          domain: 'example.com',
-          issuedDate: new Date('2023-12-01'), // Recently issued
-          expirationDate: new Date('2024-01-01'), // Soon to expire
-          daysUntilExpiry: 15,
-          certificateAge: 20,
-          certificateType: 'self-signed',
-          certificateAuthority: null,
-          security: {
-            encryptionStrength: 'weak',
-            keySize: 1024,
-            keyAlgorithm: 'RSA',
-            signatureAlgorithm: 'SHA-1 with RSA',
-            isModernCrypto: false,
-            hasWeakCrypto: true,
-            supportsModernTLS: false,
-            vulnerabilities: ['Weak cryptographic parameters']
-          },
-          validation: {
-            isValid: false,
-            isExpired: false,
-            isSelfSigned: true,
-            isRevoked: null,
-            chainValid: false,
-            domainMatch: true,
-            sanMatch: false,
-            validationErrors: [
-              {
-                type: 'signature',
-                message: 'Certificate is self-signed',
-                severity: 'high'
-              }
-            ]
-          },
-          score: 85, // High risk
-          confidence: 0.9,
-          riskFactors: [
-            {
-              type: 'age',
-              description: 'Recently issued certificate (less than 30 days old)',
-              score: 25,
-              severity: 'medium'
-            },
-            {
-              type: 'expiry',
-              description: 'Certificate expires soon (within 30 days)',
-              score: 20,
-              severity: 'medium'
-            },
-            {
-              type: 'authority',
-              description: 'Self-signed certificate',
-              score: 50,
-              severity: 'high'
-            },
-            {
-              type: 'security',
-              description: 'Weak cryptographic parameters',
-              score: 30,
-              severity: 'high'
-            }
-          ],
-          subjectAlternativeNames: [],
-          commonName: 'example.com'
-        },
+        data: sslData,
         fromCache: false,
         processingTimeMs: 120
-      }
+      };
 
-      mockSSLService.defaultSSLService.analyzeCertificate.mockResolvedValue(mockSSLAnalysis)
+      (mockSSLService.defaultSSLService.analyzeCertificate as MockedSSLFunction).mockResolvedValue(mockSSLAnalysis)
 
       const response = await POST(
         new NextRequest('http://localhost:3000/api/analyze', {
@@ -240,80 +276,86 @@ describe('SSL Certificate Analysis Integration', () => {
       expect(data.success).toBe(true)
       expect(data.data.sslCertificate.certificateType).toBe('self-signed')
       expect(data.data.sslCertificate.analysis.score).toBe(85)
-      expect(data.data.riskLevel).toBe('high') // Should be high due to SSL risks
+      expect(data.data.riskLevel).toBe('high')
       
-      // Check that SSL risk factors are included in overall risk assessment
       const sslRiskFactors = data.data.factors.filter((f: { type: string }) => f.type.startsWith('ssl-'))
       expect(sslRiskFactors.length).toBeGreaterThan(0)
       
-      // Verify explanation mentions SSL issues
       expect(data.data.explanation).toMatch(/self-signed|certificate/i)
     })
 
     it('should handle expired SSL certificate', async () => {
-      const mockSSLAnalysis = {
+      const certificateAuthority: CertificateAuthorityInfo = {
+        name: 'Let\'s Encrypt',
+        normalized: 'letsencrypt',
+        trustScore: 0.9,
+        isWellKnown: true,
+        knownForIssues: false,
+        validationLevel: 'DV'
+      }
+
+      const security: SSLSecurityAssessment = {
+        encryptionStrength: 'strong',
+        keySize: 2048,
+        keyAlgorithm: 'RSA',
+        signatureAlgorithm: 'SHA-256 with RSA',
+        isModernCrypto: true,
+        hasWeakCrypto: false,
+        supportsModernTLS: true,
+        vulnerabilities: []
+      }
+
+      const validation: SSLValidationResult = {
+        isValid: false,
+        isExpired: true,
+        isSelfSigned: false,
+        isRevoked: null,
+        chainValid: true,
+        domainMatch: true,
+        sanMatch: true,
+        validationErrors: [
+          {
+            type: 'expiry',
+            message: 'Certificate has expired',
+            severity: 'high'
+          }
+        ]
+      }
+
+      const sslData: SSLCertificateAnalysis = {
+        domain: 'example.com',
+        issuedDate: new Date('2022-01-15'),
+        expirationDate: new Date('2023-01-15'),
+        daysUntilExpiry: -30,
+        certificateAge: 400,
+        certificateType: 'DV',
+        certificateAuthority,
+        security,
+        validation,
+        score: 60,
+        confidence: 0.95,
+        riskFactors: [
+          {
+            type: 'expiry',
+            description: 'Certificate has expired',
+            score: 40,
+            severity: 'high'
+          }
+        ],
+        subjectAlternativeNames: ['example.com'],
+        commonName: 'example.com'
+      }
+
+      const mockSSLAnalysis: SSLAnalysisResult = {
         success: true,
         domain: 'example.com',
         port: 443,
-        data: {
-          domain: 'example.com',
-          issuedDate: new Date('2022-01-15'),
-          expirationDate: new Date('2023-01-15'), // Expired
-          daysUntilExpiry: -30,
-          certificateAge: 400,
-          certificateType: 'DV',
-          certificateAuthority: {
-            name: 'Let\'s Encrypt',
-            normalized: 'letsencrypt',
-            trustScore: 0.9,
-            isWellKnown: true,
-            knownForIssues: false,
-            validationLevel: 'DV'
-          },
-          security: {
-            encryptionStrength: 'strong',
-            keySize: 2048,
-            keyAlgorithm: 'RSA',
-            signatureAlgorithm: 'SHA-256 with RSA',
-            isModernCrypto: true,
-            hasWeakCrypto: false,
-            supportsModernTLS: true,
-            vulnerabilities: []
-          },
-          validation: {
-            isValid: false,
-            isExpired: true,
-            isSelfSigned: false,
-            isRevoked: null,
-            chainValid: true,
-            domainMatch: true,
-            sanMatch: true,
-            validationErrors: [
-              {
-                type: 'expiry',
-                message: 'Certificate has expired',
-                severity: 'high'
-              }
-            ]
-          },
-          score: 60,
-          confidence: 0.95,
-          riskFactors: [
-            {
-              type: 'expiry',
-              description: 'Certificate has expired',
-              score: 40,
-              severity: 'high'
-            }
-          ],
-          subjectAlternativeNames: ['example.com'],
-          commonName: 'example.com'
-        },
+        data: sslData,
         fromCache: false,
         processingTimeMs: 180
-      }
+      };
 
-      mockSSLService.defaultSSLService.analyzeCertificate.mockResolvedValue(mockSSLAnalysis)
+      (mockSSLService.defaultSSLService.analyzeCertificate as MockedSSLFunction).mockResolvedValue(mockSSLAnalysis)
 
       const response = await POST(
         new NextRequest('http://localhost:3000/api/analyze', {
@@ -334,12 +376,11 @@ describe('SSL Certificate Analysis Integration', () => {
       expect(data.data.sslCertificate.analysis.validation.isExpired).toBe(true)
       expect(data.data.sslCertificate.daysUntilExpiry).toBe(-30)
       
-      // Verify explanation mentions certificate expiration
       expect(data.data.explanation).toMatch(/expired/i)
     })
 
     it('should handle SSL analysis failure gracefully', async () => {
-      const mockSSLError = {
+      const mockSSLError: SSLAnalysisResult = {
         success: false,
         domain: 'example.com',
         port: 443,
@@ -353,9 +394,9 @@ describe('SSL Certificate Analysis Integration', () => {
         },
         fromCache: false,
         processingTimeMs: 200
-      }
+      };
 
-      mockSSLService.defaultSSLService.analyzeCertificate.mockResolvedValue(mockSSLError)
+      (mockSSLService.defaultSSLService.analyzeCertificate as MockedSSLFunction).mockResolvedValue(mockSSLError)
 
       const response = await POST(
         new NextRequest('http://localhost:3000/api/analyze', {
@@ -376,13 +417,12 @@ describe('SSL Certificate Analysis Integration', () => {
       expect(data.data.sslCertificate.error).toBe('SSL connection failed')
       expect(data.data.sslCertificate.analysis).toBeNull()
       
-      // Should still have a fallback risk factor for SSL unavailability
       const sslRiskFactors = data.data.factors.filter((f: { type: string }) => f.type === 'ssl-unavailable')
       expect(sslRiskFactors.length).toBe(1)
     })
 
     it('should handle SSL analysis timeout', async () => {
-      const mockSSLError = {
+      const mockSSLError: SSLAnalysisResult = {
         success: false,
         domain: 'example.com',
         port: 443,
@@ -396,9 +436,9 @@ describe('SSL Certificate Analysis Integration', () => {
         },
         fromCache: false,
         processingTimeMs: 5000
-      }
+      };
 
-      mockSSLService.defaultSSLService.analyzeCertificate.mockResolvedValue(mockSSLError)
+      (mockSSLService.defaultSSLService.analyzeCertificate as MockedSSLFunction).mockResolvedValue(mockSSLError)
 
       const response = await POST(
         new NextRequest('http://localhost:3000/api/analyze', {
@@ -420,56 +460,64 @@ describe('SSL Certificate Analysis Integration', () => {
     })
 
     it('should return cached SSL analysis when available', async () => {
-      const mockSSLAnalysis = {
+      const certificateAuthority: CertificateAuthorityInfo = {
+        name: 'DigiCert Inc',
+        normalized: 'digicert',
+        trustScore: 0.9,
+        isWellKnown: true,
+        knownForIssues: false,
+        validationLevel: 'OV'
+      }
+
+      const security: SSLSecurityAssessment = {
+        encryptionStrength: 'strong',
+        keySize: 2048,
+        keyAlgorithm: 'RSA',
+        signatureAlgorithm: 'SHA-256 with RSA',
+        isModernCrypto: true,
+        hasWeakCrypto: false,
+        supportsModernTLS: true,
+        vulnerabilities: []
+      }
+
+      const validation: SSLValidationResult = {
+        isValid: true,
+        isExpired: false,
+        isSelfSigned: false,
+        isRevoked: null,
+        chainValid: true,
+        domainMatch: true,
+        sanMatch: true,
+        validationErrors: []
+      }
+
+      const sslData: SSLCertificateAnalysis = {
+        domain: 'example.com',
+        issuedDate: new Date('2023-01-15'),
+        expirationDate: new Date('2024-01-15'),
+        daysUntilExpiry: 200,
+        certificateAge: 150,
+        certificateType: 'OV',
+        certificateAuthority,
+        security,
+        validation,
+        score: 10,
+        confidence: 0.95,
+        riskFactors: [],
+        subjectAlternativeNames: ['example.com', 'www.example.com'],
+        commonName: 'example.com'
+      }
+
+      const mockSSLAnalysis: SSLAnalysisResult = {
         success: true,
         domain: 'example.com',
         port: 443,
-        data: {
-          domain: 'example.com',
-          issuedDate: new Date('2023-01-15'),
-          expirationDate: new Date('2024-01-15'),
-          daysUntilExpiry: 200,
-          certificateAge: 150,
-          certificateType: 'OV',
-          certificateAuthority: {
-            name: 'DigiCert Inc',
-            normalized: 'digicert',
-            trustScore: 0.9,
-            isWellKnown: true,
-            knownForIssues: false,
-            validationLevel: 'OV'
-          },
-          security: {
-            encryptionStrength: 'strong',
-            keySize: 2048,
-            keyAlgorithm: 'RSA',
-            signatureAlgorithm: 'SHA-256 with RSA',
-            isModernCrypto: true,
-            hasWeakCrypto: false,
-            supportsModernTLS: true,
-            vulnerabilities: []
-          },
-          validation: {
-            isValid: true,
-            isExpired: false,
-            isSelfSigned: false,
-            isRevoked: null,
-            chainValid: true,
-            domainMatch: true,
-            sanMatch: true,
-            validationErrors: []
-          },
-          score: 10,
-          confidence: 0.95,
-          riskFactors: [],
-          subjectAlternativeNames: ['example.com', 'www.example.com'],
-          commonName: 'example.com'
-        },
-        fromCache: true, // Cached result
+        data: sslData,
+        fromCache: true,
         processingTimeMs: 5
-      }
+      };
 
-      mockSSLService.defaultSSLService.analyzeCertificate.mockResolvedValue(mockSSLAnalysis)
+      (mockSSLService.defaultSSLService.analyzeCertificate as MockedSSLFunction).mockResolvedValue(mockSSLAnalysis)
 
       const response = await POST(
         new NextRequest('http://localhost:3000/api/analyze', {
@@ -494,8 +542,6 @@ describe('SSL Certificate Analysis Integration', () => {
 
   describe('HTTP URL Handling', () => {
     it('should not perform SSL analysis for HTTP URLs', async () => {
-      // SSL should not be called for this test
-
       const response = await POST(
         new NextRequest('http://localhost:3000/api/analyze', {
           method: 'POST',
@@ -519,22 +565,25 @@ describe('SSL Certificate Analysis Integration', () => {
       expect(data.success).toBe(true)
       expect(data.data.sslCertificate).toBeUndefined()
       
-      // Verify SSL service was not called
       expect(mockSSLService.defaultSSLService.analyzeCertificate).not.toHaveBeenCalled()
     })
   })
 
   describe('IP Address Handling', () => {
     it('should not perform SSL analysis for IP addresses', async () => {
-      // Mock URL parser to return IP address result - this prevents SSL analysis
-
-      // Mock WHOIS to handle IP
-      mockWhoisService.defaultWhoisService.analyzeDomain.mockResolvedValue({
+      (mockWhoisService.defaultWhoisService.analyzeDomain as MockedWhoisFunction).mockResolvedValue({
         success: false,
-        error: { type: 'invalid_domain', message: 'IP addresses not supported' }
+        domain: '8.8.8.8',
+        error: { 
+          type: 'invalid_domain', 
+          message: 'IP addresses not supported',
+          domain: '8.8.8.8',
+          retryable: false,
+          timestamp: new Date().toISOString()
+        },
+        fromCache: false,
+        processingTimeMs: 10
       })
-
-      // SSL should not be called for this test
 
       const response = await POST(
         new NextRequest('http://localhost:3000/api/analyze', {
@@ -559,14 +608,13 @@ describe('SSL Certificate Analysis Integration', () => {
       expect(data.success).toBe(true)
       expect(data.data.sslCertificate).toBeUndefined()
       
-      // Verify SSL service was not called for IP address
       expect(mockSSLService.defaultSSLService.analyzeCertificate).not.toHaveBeenCalled()
     })
   })
 
   describe('Error Handling', () => {
     it('should handle unexpected SSL service errors', async () => {
-      mockSSLService.defaultSSLService.analyzeCertificate.mockRejectedValue(new Error('Unexpected SSL service error'))
+      (mockSSLService.defaultSSLService.analyzeCertificate as MockedSSLFunction).mockRejectedValue(new Error('Unexpected SSL service error'))
 
       const response = await POST(
         new NextRequest('http://localhost:3000/api/analyze', {
@@ -586,7 +634,6 @@ describe('SSL Certificate Analysis Integration', () => {
       expect(data.success).toBe(true)
       expect(data.data.sslCertificate.error).toBe('Unexpected SSL service error')
       
-      // Should still have a fallback risk factor for SSL error
       const sslRiskFactors = data.data.factors.filter((f: { type: string }) => f.type === 'ssl-error')
       expect(sslRiskFactors.length).toBe(1)
     })
@@ -594,32 +641,64 @@ describe('SSL Certificate Analysis Integration', () => {
 
   describe('Custom Port Handling', () => {
     it('should handle custom HTTPS ports in URLs', async () => {
-      const mockSSLAnalysis = {
+      const certificateAuthority: CertificateAuthorityInfo = {
+        name: 'Let\'s Encrypt',
+        normalized: 'letsencrypt',
+        trustScore: 0.9,
+        isWellKnown: true,
+        knownForIssues: false,
+        validationLevel: 'DV'
+      }
+
+      const security: SSLSecurityAssessment = {
+        encryptionStrength: 'strong',
+        keySize: 2048,
+        keyAlgorithm: 'RSA',
+        signatureAlgorithm: 'SHA-256 with RSA',
+        isModernCrypto: true,
+        hasWeakCrypto: false,
+        supportsModernTLS: true,
+        vulnerabilities: []
+      }
+
+      const validation: SSLValidationResult = {
+        isValid: true,
+        isExpired: false,
+        isSelfSigned: false,
+        isRevoked: null,
+        chainValid: true,
+        domainMatch: true,
+        sanMatch: true,
+        validationErrors: []
+      }
+
+      const sslData: SSLCertificateAnalysis = {
+        domain: 'example.com',
+        issuedDate: new Date('2023-01-15'),
+        expirationDate: new Date('2024-01-15'),
+        daysUntilExpiry: 200,
+        certificateAge: 150,
+        certificateType: 'DV',
+        certificateAuthority,
+        security,
+        validation,
+        score: 15,
+        confidence: 0.9,
+        riskFactors: [],
+        subjectAlternativeNames: ['example.com'],
+        commonName: 'example.com'
+      }
+
+      const mockSSLAnalysis: SSLAnalysisResult = {
         success: true,
         domain: 'example.com',
         port: 8443,
-        data: {
-          domain: 'example.com',
-          certificateType: 'DV',
-          certificateAuthority: {
-            name: 'Let\'s Encrypt',
-            normalized: 'letsencrypt',
-            trustScore: 0.9,
-            isWellKnown: true,
-            knownForIssues: false,
-            validationLevel: 'DV'
-          },
-          score: 15,
-          confidence: 0.9,
-          riskFactors: [],
-          subjectAlternativeNames: ['example.com'],
-          commonName: 'example.com'
-        },
+        data: sslData,
         fromCache: false,
         processingTimeMs: 200
-      }
+      };
 
-      mockSSLService.defaultSSLService.analyzeCertificate.mockResolvedValue(mockSSLAnalysis)
+      (mockSSLService.defaultSSLService.analyzeCertificate as MockedSSLFunction).mockResolvedValue(mockSSLAnalysis)
 
       const response = await POST(
         new NextRequest('http://localhost:3000/api/analyze', {
@@ -638,9 +717,6 @@ describe('SSL Certificate Analysis Integration', () => {
       expect(response.status).toBe(200)
       expect(data.success).toBe(true)
       expect(data.data.sslCertificate).toBeDefined()
-      
-      // Note: The port extraction would need to be implemented in the actual service
-      // This test validates the integration works with custom ports
     })
   })
 })

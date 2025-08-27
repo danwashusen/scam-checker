@@ -60,7 +60,11 @@ jest.mock('../../../src/lib/logger', () => ({
   }
 }))
 
-import loggerModule from '../../../src/lib/logger'
+import * as loggerModule from '../../../src/lib/logger'
+import type { LogContext } from '../../../src/lib/logger'
+
+type MockedLoggerFunction = jest.MockedFunction<(message: string, context?: LogContext) => void>
+
 const { logger: mockLogger } = loggerModule as jest.Mocked<typeof loggerModule>
 
 // Mock console methods to avoid test output pollution
@@ -413,23 +417,23 @@ describe('/api/analyze', () => {
         await POST(request)
 
         // Check that sensitive info was redacted in logs
-        const logCall = mockLogger.info.mock.calls.find(call => 
-          call[0].includes('completed successfully')
+        const logCall = (mockLogger.info as MockedLoggerFunction).mock.calls.find((call: unknown[]) => 
+          (call[0] as string).includes('completed successfully')
         )
         expect(logCall).toBeDefined()
-        expect(logCall[1].url).not.toContain('secret')
+        expect(logCall?.[1]?.url).not.toContain('secret')
       })
 
       test('includes processing time in logs', async () => {
         const request = createRequest({ url: 'https://example.com' })
         await POST(request)
 
-        const logCall = mockLogger.info.mock.calls.find(call => 
-          call[0].includes('completed successfully')
+        const logCall = (mockLogger.info as MockedLoggerFunction).mock.calls.find((call: unknown[]) => 
+          (call[0] as string).includes('completed successfully')
         )
         expect(logCall).toBeDefined()
-        expect(logCall[1]).toHaveProperty('processingTime')
-        expect(typeof logCall[1].processingTime).toBe('number')
+        expect(logCall?.[1]).toHaveProperty('processingTime')
+        expect(typeof logCall?.[1]?.processingTime).toBe('number')
       })
     })
 

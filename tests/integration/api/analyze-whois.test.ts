@@ -1,3 +1,8 @@
+/**
+ * Integration tests for WHOIS domain age analysis in the analyze API endpoint
+ * These tests verify the end-to-end WHOIS analysis functionality
+ */
+
 import { NextRequest } from 'next/server'
 import { POST, GET } from '../../../src/app/api/analyze/route'
 
@@ -27,8 +32,25 @@ jest.mock('../../../src/lib/analysis/ssl-service', () => ({
 }))
 
 // Import the mocked modules
-import whoisServiceModule from '../../../src/lib/analysis/whois-service'
-import sslServiceModule from '../../../src/lib/analysis/ssl-service'
+import * as whoisServiceModule from '../../../src/lib/analysis/whois-service'
+import * as sslServiceModule from '../../../src/lib/analysis/ssl-service'
+import type { 
+  WhoisLookupResult, 
+  WhoisLookupOptions, 
+  DomainAgeAnalysis 
+} from '../../../src/types/whois'
+import type { 
+  SSLAnalysisResult, 
+  SSLConnectionOptions,
+  SSLCertificateAnalysis,
+  SSLSecurityAssessment,
+  SSLValidationResult,
+  CertificateAuthorityInfo
+} from '../../../src/types/ssl'
+import type { ParsedURL } from '../../../src/lib/validation/url-parser'
+
+type MockedWhoisFunction = jest.MockedFunction<(domainInput: string | ParsedURL, options?: WhoisLookupOptions) => Promise<WhoisLookupResult>>
+type MockedSSLFunction = jest.MockedFunction<(domainInput: string | ParsedURL, options?: SSLConnectionOptions) => Promise<SSLAnalysisResult>>
 
 const { defaultWhoisService } = whoisServiceModule as jest.Mocked<typeof whoisServiceModule>
 const { defaultSSLService } = sslServiceModule as jest.Mocked<typeof sslServiceModule>
@@ -51,36 +73,84 @@ describe('/api/analyze Integration Tests with WHOIS', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     
-    // Setup WHOIS mock after clearing
-    defaultWhoisService.analyzeDomain.mockResolvedValue({
+    // Setup default WHOIS mock
+    const defaultWhoisData: DomainAgeAnalysis = {
+      ageInDays: 1000,
+      registrationDate: new Date('2021-01-01'),
+      expirationDate: new Date('2025-01-01'),
+      updatedDate: new Date('2023-01-01'),
+      registrar: 'Test Registrar',
+      nameservers: ['ns1.example.com', 'ns2.example.com'],
+      status: ['active'],
+      score: 0.2,
+      confidence: 0.9,
+      privacyProtected: false,
+      registrantCountry: 'US',
+      riskFactors: []
+    };
+    
+    (defaultWhoisService.analyzeDomain as MockedWhoisFunction).mockResolvedValue({
       success: true,
       domain: 'example.com',
-      data: {
-        ageInDays: 1000,
-        registrationDate: new Date('2021-01-01'),
-        expirationDate: new Date('2025-01-01'),
-        registrar: 'Test Registrar',
-        score: 0.2,
-        confidence: 0.9,
-        riskFactors: []
-      },
+      data: defaultWhoisData,
       fromCache: false,
       processingTimeMs: 100
     })
     
     // Setup default SSL mock to avoid interference
-    defaultSSLService.analyzeCertificate.mockResolvedValue({
+    const certificateAuthority: CertificateAuthorityInfo = {
+      name: 'Let\'s Encrypt',
+      normalized: 'letsencrypt',
+      trustScore: 0.8,
+      isWellKnown: true,
+      knownForIssues: false,
+      validationLevel: 'DV'
+    }
+
+    const security: SSLSecurityAssessment = {
+      encryptionStrength: 'strong',
+      keySize: 2048,
+      keyAlgorithm: 'RSA',
+      signatureAlgorithm: 'SHA-256 with RSA',
+      isModernCrypto: true,
+      hasWeakCrypto: false,
+      supportsModernTLS: true,
+      vulnerabilities: []
+    }
+
+    const validation: SSLValidationResult = {
+      isValid: true,
+      isExpired: false,
+      isSelfSigned: false,
+      isRevoked: null,
+      chainValid: true,
+      domainMatch: true,
+      sanMatch: true,
+      validationErrors: []
+    }
+
+    const sslData: SSLCertificateAnalysis = {
+      domain: 'example.com',
+      issuedDate: new Date('2023-01-15'),
+      expirationDate: new Date('2024-01-15'),
+      daysUntilExpiry: 200,
+      certificateAge: 150,
+      certificateType: 'DV',
+      certificateAuthority,
+      security,
+      validation,
+      score: 10,
+      confidence: 0.9,
+      riskFactors: [],
+      subjectAlternativeNames: ['example.com'],
+      commonName: 'example.com'
+    };
+    
+    (defaultSSLService.analyzeCertificate as MockedSSLFunction).mockResolvedValue({
       success: true,
       domain: 'example.com',
       port: 443,
-      data: {
-        domain: 'example.com',
-        certificateType: 'DV',
-        certificateAuthority: { name: 'Let\'s Encrypt', normalized: 'letsencrypt', trustScore: 0.8, isWellKnown: true, knownForIssues: false, validationLevel: 'DV' },
-        score: 10,
-        confidence: 0.9,
-        riskFactors: []
-      },
+      data: sslData,
       fromCache: false,
       processingTimeMs: 100
     })
@@ -89,7 +159,7 @@ describe('/api/analyze Integration Tests with WHOIS', () => {
   describe('POST /api/analyze with WHOIS integration', () => {
     it('should successfully analyze URL with WHOIS data', async () => {
       // Mock successful WHOIS lookup
-      const mockWhoisAnalysis = {
+      const mockWhoisAnalysis: DomainAgeAnalysis = {
         ageInDays: 1200,
         registrationDate: new Date('2020-01-15'),
         expirationDate: new Date('2025-01-15'),
@@ -113,9 +183,9 @@ describe('/api/analyze Integration Tests with WHOIS', () => {
             score: 0.04
           }
         ]
-      }
+      };
 
-      defaultWhoisService.analyzeDomain.mockResolvedValueOnce({
+      (defaultWhoisService.analyzeDomain as MockedWhoisFunction).mockResolvedValueOnce({
         success: true,
         domain: 'example.com',
         data: mockWhoisAnalysis,
@@ -145,7 +215,7 @@ describe('/api/analyze Integration Tests with WHOIS', () => {
 
     it('should handle WHOIS lookup failure gracefully', async () => {
       // Mock failed WHOIS lookup
-      defaultWhoisService.analyzeDomain.mockResolvedValue({
+      (defaultWhoisService.analyzeDomain as MockedWhoisFunction).mockResolvedValue({
         success: false,
         domain: 'example.com',
         error: {
@@ -178,7 +248,7 @@ describe('/api/analyze Integration Tests with WHOIS', () => {
 
     it('should handle WHOIS service exceptions', async () => {
       // Mock WHOIS service throwing an exception
-      defaultWhoisService.analyzeDomain.mockRejectedValue(
+      (defaultWhoisService.analyzeDomain as MockedWhoisFunction).mockRejectedValue(
         new Error('Unexpected WHOIS service error')
       )
 
@@ -221,7 +291,7 @@ describe('/api/analyze Integration Tests with WHOIS', () => {
     })
 
     it('should include WHOIS data from cache', async () => {
-      const mockWhoisAnalysis = {
+      const mockWhoisAnalysis: DomainAgeAnalysis = {
         ageInDays: 500,
         registrationDate: new Date('2022-06-01'),
         expirationDate: new Date('2025-06-01'),
@@ -245,9 +315,9 @@ describe('/api/analyze Integration Tests with WHOIS', () => {
             score: 0.3
           }
         ]
-      }
+      };
 
-      defaultWhoisService.analyzeDomain.mockResolvedValue({
+      (defaultWhoisService.analyzeDomain as MockedWhoisFunction).mockResolvedValue({
         success: true,
         domain: 'cached.com',
         data: mockWhoisAnalysis,
@@ -275,7 +345,7 @@ describe('/api/analyze Integration Tests with WHOIS', () => {
       const recentDate = new Date()
       recentDate.setDate(recentDate.getDate() - 10) // 10 days ago
 
-      const mockWhoisAnalysis = {
+      const mockWhoisAnalysis: DomainAgeAnalysis = {
         ageInDays: 10,
         registrationDate: recentDate,
         expirationDate: new Date('2025-01-01'),
@@ -304,9 +374,9 @@ describe('/api/analyze Integration Tests with WHOIS', () => {
             score: 0.2
           }
         ]
-      }
+      };
 
-      defaultWhoisService.analyzeDomain.mockResolvedValue({
+      (defaultWhoisService.analyzeDomain as MockedWhoisFunction).mockResolvedValue({
         success: true,
         domain: 'suspicious.com',
         data: mockWhoisAnalysis,
@@ -332,7 +402,7 @@ describe('/api/analyze Integration Tests with WHOIS', () => {
     it('should analyze mature domain with low risk score', async () => {
       const oldDate = new Date('2018-01-01')
 
-      const mockWhoisAnalysis = {
+      const mockWhoisAnalysis: DomainAgeAnalysis = {
         ageInDays: 2100, // About 5.7 years
         registrationDate: oldDate,
         expirationDate: new Date('2025-01-01'),
@@ -351,9 +421,9 @@ describe('/api/analyze Integration Tests with WHOIS', () => {
             score: 0.1
           }
         ]
-      }
+      };
 
-      defaultWhoisService.analyzeDomain.mockResolvedValue({
+      (defaultWhoisService.analyzeDomain as MockedWhoisFunction).mockResolvedValue({
         success: true,
         domain: 'trustworthy.com',
         data: mockWhoisAnalysis,
@@ -378,7 +448,7 @@ describe('/api/analyze Integration Tests with WHOIS', () => {
     })
 
     it('should handle subdomain extraction correctly for WHOIS', async () => {
-      const mockWhoisAnalysis = {
+      const mockWhoisAnalysis: DomainAgeAnalysis = {
         ageInDays: 800,
         registrationDate: new Date('2021-01-01'),
         expirationDate: new Date('2025-01-01'),
@@ -397,9 +467,9 @@ describe('/api/analyze Integration Tests with WHOIS', () => {
             score: 0.2
           }
         ]
-      }
+      };
 
-      defaultWhoisService.analyzeDomain.mockResolvedValue({
+      (defaultWhoisService.analyzeDomain as MockedWhoisFunction).mockResolvedValue({
         success: true,
         domain: 'parent.com', // Should query parent domain, not subdomain
         data: mockWhoisAnalysis,
@@ -490,7 +560,7 @@ describe('/api/analyze Integration Tests with WHOIS', () => {
 
   describe('Performance and caching with WHOIS', () => {
     it('should complete analysis within reasonable time with WHOIS', async () => {
-      const mockWhoisAnalysis = {
+      const mockWhoisAnalysis: DomainAgeAnalysis = {
         ageInDays: 365,
         registrationDate: new Date('2023-01-01'),
         expirationDate: new Date('2025-01-01'),
@@ -509,9 +579,9 @@ describe('/api/analyze Integration Tests with WHOIS', () => {
             score: 0.4
           }
         ]
-      }
+      };
 
-      defaultWhoisService.analyzeDomain.mockResolvedValue({
+      (defaultWhoisService.analyzeDomain as MockedWhoisFunction).mockResolvedValue({
         success: true,
         domain: 'fast.com',
         data: mockWhoisAnalysis,
