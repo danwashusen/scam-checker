@@ -88,7 +88,7 @@ describe('SSLService', () => {
       getStats: jest.fn(),
       cleanup: jest.fn(),
       getOrSet: jest.fn()
-    } as jest.Mocked<CacheManager<SSLCacheEntry>>
+    } as unknown as jest.Mocked<CacheManager<SSLCacheEntry>>
 
     // Create service with mock cache
     sslService = new SSLService({
@@ -219,7 +219,8 @@ describe('SSLService', () => {
     it('should handle SSL connection timeout', async () => {
       mockCacheManager.get.mockResolvedValue(null)
       
-      const timeoutError = new Error('SSL connection timeout after 5000ms')
+      const timeoutError = new Error('SSL connection timeout') as Error & { code: string }
+      timeoutError.code = 'ETIMEDOUT'
       mockGetSSLCertificate.mockRejectedValue(timeoutError)
 
       const result = await sslService.analyzeCertificate('example.com')

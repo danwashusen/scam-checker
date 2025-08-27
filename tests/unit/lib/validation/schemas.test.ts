@@ -1,3 +1,4 @@
+import { z } from 'zod'
 import {
   URLInputSchema,
   URLAnalysisRequestSchema,
@@ -255,7 +256,12 @@ describe('Validation Schemas', () => {
       test('returns fallback for errors without messages', () => {
         const mockError = {
           errors: [{ message: '', path: [], code: 'custom' as string }],
-        } as { errors: Array<{ message: string; path: unknown[]; code: string }> }
+          issues: [{ message: '', path: [], code: 'custom' as string }],
+          format: () => ({}),
+          message: '',
+          isEmpty: false,
+          flatten: () => ({})
+        } as unknown as z.ZodError
         const formatted = formatValidationError(mockError)
         expect(formatted).toBe('Invalid input provided')
       })

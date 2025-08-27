@@ -41,6 +41,9 @@ Object.defineProperty(process.env, 'NEXT_PUBLIC_APP_URL', { value: 'http://local
 import fetchMock from 'jest-fetch-mock'
 global.fetch = fetchMock as unknown as typeof fetch
 
+// Set test environment flag to help logger avoid thread-stream
+process.env.JEST_TEST_ENVIRONMENT = 'jsdom'
+
 // Polyfill for Node.js APIs in JSDOM environment
 if (typeof global.setImmediate === 'undefined') {
   global.setImmediate = setTimeout as unknown as typeof setImmediate

@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { validateURL, isValidURL } from './url-validator'
-import type { URLValidationOptions, SanitizationOptions } from '../../types/url'
+import type { URLValidationOptions } from '../../types/url'
 
 // Base URL validation options schema
 export const URLValidationOptionsSchema = z.object({

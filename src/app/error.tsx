@@ -1,6 +1,8 @@
 'use client'
 
 import { useEffect } from 'react'
+import Link from 'next/link'
+import { logger } from '../lib/logger'
 
 export default function Error({
   error,
@@ -10,7 +12,11 @@ export default function Error({
   reset: () => void
 }) {
   useEffect(() => {
-    console.error('Application error:', error)
+    logger.error('Application error', {
+      error,
+      digest: error.digest,
+      userAgent: typeof window !== 'undefined' ? window.navigator.userAgent : 'unknown'
+    })
   }, [error])
 
   return (
@@ -46,12 +52,12 @@ export default function Error({
             Try again
           </button>
           
-          <a
+          <Link
             href="/"
             className="text-sm font-semibold leading-6 text-foreground hover:text-foreground/80"
           >
             Go home
-          </a>
+          </Link>
         </div>
       </div>
     </div>

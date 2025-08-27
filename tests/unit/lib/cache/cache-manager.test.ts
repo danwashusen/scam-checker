@@ -293,7 +293,7 @@ describe('CacheManager', () => {
         clear: jest.fn(),
         size: jest.fn(),
         keys: jest.fn(),
-      } as jest.Mocked<CacheInterface<TestData>>
+      } as unknown as jest.Mocked<CacheInterface<CacheEntry<TestData>>>
 
       const errorCacheManager = new CacheManager<TestData>(
         { prefix: 'test', ttl: 1000 },

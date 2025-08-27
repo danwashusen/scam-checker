@@ -31,7 +31,7 @@ export function parseURL(input: string): ParsedURL {
   let url: URL
   try {
     url = new URL(urlInput)
-  } catch (error) {
+  } catch {
     throw new Error(`Invalid URL format: ${input}`)
   }
 

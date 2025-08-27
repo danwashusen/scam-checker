@@ -85,7 +85,7 @@ export function validateURL(input: string, options: URLValidationOptions = {}): 
     // Handle URLs without protocol by adding https://, but preserve existing protocols
     const urlInput = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//i.test(input) ? input : `https://${input}`
     url = new URL(urlInput)
-  } catch (error) {
+  } catch {
     return {
       isValid: false,
       error: 'Invalid URL format',
@@ -186,7 +186,7 @@ function validateDomain(hostname: string, options: Required<URLValidationOptions
 /**
  * Performs additional security checks on the URL
  */
-function performSecurityChecks(url: URL, options: Required<URLValidationOptions>): URLValidationResult {
+function performSecurityChecks(url: URL, _options: Required<URLValidationOptions>): URLValidationResult {
   // Check for suspicious patterns that might indicate malicious intent
   const suspiciousPatterns = [
     /javascript:/i,

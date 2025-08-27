@@ -1,5 +1,6 @@
 import type { CacheInterface, CacheOptions, CacheEntry, CacheStats } from './cache-types'
 import { NoOpCache } from './no-op-cache'
+import { logger } from '../logger'
 
 /**
  * CacheManager - Generic cache implementation with configurable backing store
@@ -65,7 +66,10 @@ export class CacheManager<T> {
       this.updateHitRate()
       return entry.data
     } catch (error) {
-      console.error(`Cache get error for key ${cacheKey}:`, error)
+      logger.error('Cache get error', {
+        cacheKey,
+        error: error instanceof Error ? error : new Error(String(error))
+      })
       this.stats.misses++
       this.updateHitRate()
       return null
@@ -90,7 +94,10 @@ export class CacheManager<T> {
       await this.cache.set(cacheKey, entry, ttl)
       await this.updateSize()
     } catch (error) {
-      console.error(`Cache set error for key ${cacheKey}:`, error)
+      logger.error('Cache set error', {
+        cacheKey,
+        error: error instanceof Error ? error : new Error(String(error))
+      })
       // Continue operation even if cache fails
     }
   }
@@ -108,7 +115,10 @@ export class CacheManager<T> {
       }
       return deleted
     } catch (error) {
-      console.error(`Cache delete error for key ${cacheKey}:`, error)
+      logger.error('Cache delete error', {
+        cacheKey,
+        error: error instanceof Error ? error : new Error(String(error))
+      })
       return false
     }
   }
@@ -122,7 +132,10 @@ export class CacheManager<T> {
     try {
       return await this.cache.has(cacheKey)
     } catch (error) {
-      console.error(`Cache has error for key ${cacheKey}:`, error)
+      logger.error('Cache has error', {
+        cacheKey,
+        error: error instanceof Error ? error : new Error(String(error))
+      })
       return false
     }
   }
@@ -135,7 +148,9 @@ export class CacheManager<T> {
       await this.cache.clear()
       this.stats.size = 0
     } catch (error) {
-      console.error('Cache clear error:', error)
+      logger.error('Cache clear error', {
+        error: error instanceof Error ? error : new Error(String(error))
+      })
     }
   }
 
@@ -170,7 +185,9 @@ export class CacheManager<T> {
       
       await this.updateSize()
     } catch (error) {
-      console.error('Cache cleanup error:', error)
+      logger.error('Cache cleanup error', {
+        error: error instanceof Error ? error : new Error(String(error))
+      })
     }
     
     return cleaned
@@ -217,7 +234,9 @@ export class CacheManager<T> {
       this.stats.size = await this.cache.size()
     } catch (error) {
       // Size tracking is not critical, continue without it
-      console.warn('Could not update cache size stats:', error)
+      logger.warn('Could not update cache size stats', {
+        error: error instanceof Error ? error : new Error(String(error))
+      })
     }
   }
 }

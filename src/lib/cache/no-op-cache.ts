@@ -14,18 +14,18 @@ export class NoOpCache<T> implements CacheInterface<T> {
     maxSize: 0,
   }
 
-  async get(key: string): Promise<T | null> {
+  async get(_key: string): Promise<T | null> {
     this._stats.misses++
     this._stats.hitRate = this._stats.hits / (this._stats.hits + this._stats.misses)
     return null
   }
 
-  async set(key: string, value: T, ttl?: number): Promise<void> {
+  async set(_key: string, _value: T, _ttl?: number): Promise<void> {
     // No-op - doesn't actually store anything
     return
   }
 
-  async delete(key: string): Promise<boolean> {
+  async delete(_key: string): Promise<boolean> {
     return false
   }
 
@@ -34,7 +34,7 @@ export class NoOpCache<T> implements CacheInterface<T> {
     return
   }
 
-  async has(key: string): Promise<boolean> {
+  async has(_key: string): Promise<boolean> {
     return false
   }
 

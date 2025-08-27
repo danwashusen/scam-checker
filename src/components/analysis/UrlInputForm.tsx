@@ -29,7 +29,7 @@ export function UrlInputForm({
 }: UrlInputFormProps) {
   const [showOptions, setShowOptions] = useState(false)
   
-  const { state, setValue, validate, clear, getFeedback, isReady } = useURLValidation({
+  const { state, setValue, clear, getFeedback, isReady } = useURLValidation({
     validation: validationOptions,
     sanitization: sanitizationOptions,
     debounceMs: 300,

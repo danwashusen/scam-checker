@@ -1,5 +1,5 @@
 import { URL } from 'url'
-import { parseURL, type ParsedURL } from './url-parser'
+import { parseURL } from './url-parser'
 
 export interface URLSanitizationResult {
   original: string
@@ -94,14 +94,12 @@ export function sanitizeURL(input: string, options: SanitizationOptions = {}): U
 
   try {
     // Parse the URL
-    let url: URL
-    
     // Handle URLs without protocol
     if (!/^https?:\/\//i.test(currentUrl)) {
       currentUrl = `https://${currentUrl}`
     }
     
-    url = new URL(currentUrl)
+    const url = new URL(currentUrl)
 
     // 1. Protocol upgrade (HTTP to HTTPS)
     if (opts.upgradeProtocol && url.protocol === 'http:') {
@@ -175,7 +173,7 @@ export function sanitizeURL(input: string, options: SanitizationOptions = {}): U
 
     // 6. Normalize encoding
     if (opts.normalizeEncoding) {
-      const originalHref = url.href
+      const _originalHref = url.href
       
       // Decode and re-encode pathname
       try {
@@ -191,7 +189,7 @@ export function sanitizeURL(input: string, options: SanitizationOptions = {}): U
             after: 'normalized encoding',
           })
         }
-      } catch (error) {
+      } catch {
         // Skip encoding normalization if decoding fails
       }
     }
@@ -206,7 +204,7 @@ export function sanitizeURL(input: string, options: SanitizationOptions = {}): U
       wasModified,
     }
 
-  } catch (error) {
+  } catch {
     // If URL parsing fails, return original with no changes
     return {
       original: input.trim(),
@@ -270,7 +268,7 @@ export function getDisplayURL(input: string): string {
     }
     
     return url.href
-  } catch (error) {
+  } catch {
     return input.trim()
   }
 }
@@ -296,7 +294,7 @@ export function sanitizeForLogging(input: string): string {
     }
     
     return url.href
-  } catch (error) {
+  } catch {
     return '[INVALID_URL]'
   }
 }
@@ -310,7 +308,7 @@ export function hasTrackingParams(input: string, customParams: string[] = []): b
     const allTrackingParams = [...TRACKING_PARAMETERS, ...customParams]
     
     return allTrackingParams.some(param => url.searchParams.has(param))
-  } catch (error) {
+  } catch {
     return false
   }
 }
@@ -332,7 +330,7 @@ export function getTrackingParams(input: string, customParams: string[] = []): R
     }
     
     return trackingParams
-  } catch (error) {
+  } catch {
     return {}
   }
 }

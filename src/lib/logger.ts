@@ -17,8 +17,14 @@ class Logger {
   constructor() {
     const isLambda = !!process.env.AWS_LAMBDA_FUNCTION_NAME
     const isBuild = process.env.NODE_ENV === 'production' || process.env.NEXT_PHASE === 'phase-production-build'
+    const isTest = process.env.NODE_ENV === 'test' || process.env.JEST_TEST_ENVIRONMENT === 'jsdom'
     
-    if (isLambda) {
+    if (isTest) {
+      // Test environment - use simple logger to avoid worker thread issues with JSDOM
+      this.logger = pino({
+        level: 'silent', // Minimize test noise
+      })
+    } else if (isLambda) {
       // Lambda environment - use pino-lambda for CloudWatch optimization
       this.logger = pino(
         {

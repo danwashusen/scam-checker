@@ -101,7 +101,7 @@ export interface WhoisError {
   message: string
   domain: string
   retryable: boolean
-  details?: any
+  details?: Record<string, unknown>
   timestamp: string
 }
 

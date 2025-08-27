@@ -9,7 +9,12 @@ jest.mock('whois', () => ({
 }))
 
 import * as whoisModule from 'whois'
-const mockWhois = whoisModule as jest.Mocked<typeof whoisModule>
+
+interface WhoisModule {
+  lookup: (domain: string, options: unknown, callback: (err: Error | null, data?: string) => void) => void
+}
+
+const mockWhois = whoisModule as unknown as jest.Mocked<WhoisModule>
 
 describe('WhoisService', () => {
   let whoisService: WhoisService
@@ -62,7 +67,7 @@ Registrant Country: US
       getStats: jest.fn(),
       cleanup: jest.fn(),
       getOrSet: jest.fn()
-    } as jest.Mocked<CacheManager<WhoisCacheEntry>>
+    } as unknown as jest.Mocked<CacheManager<WhoisCacheEntry>>
 
     // Create service with mock cache
     whoisService = new WhoisService({
@@ -282,9 +287,10 @@ Registrant Country: US
 
     it('should handle custom lookup options', async () => {
       mockWhois.lookup.mockImplementation((domain: string, options: unknown, callback: (err: Error | null, data?: string) => void) => {
-        expect(options.timeout).toBe(10000)
-        expect(options.follow).toBe(3)
-        expect(options.server).toBe('custom.whois.server')
+        const opts = options as { timeout: number; follow: number; server: string }
+        expect(opts.timeout).toBe(10000)
+        expect(opts.follow).toBe(3)
+        expect(opts.server).toBe('custom.whois.server')
         callback(null, sampleWhoisResponse)
       })
       mockCacheManager.get.mockResolvedValue(null)

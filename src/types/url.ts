@@ -55,7 +55,7 @@ export interface URLAnalysisResult {
 export interface URLValidationError {
   type: 'validation' | 'parsing' | 'sanitization' | 'unknown'
   message: string
-  details?: any
+  details?: Record<string, unknown>
   input: string
   timestamp: string
 }
@@ -94,7 +94,7 @@ export interface URLValidationResponse {
   error?: {
     message: string
     type: string
-    details?: any
+    details?: Record<string, unknown>
   }
   timestamp: string
 }

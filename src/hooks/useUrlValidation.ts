@@ -339,7 +339,7 @@ export function useBatchURLValidation(options: UseURLValidationOptions = {}) {
             normalizedUrl: validationResult.normalizedUrl,
           } as URLInputState,
         }
-      } catch (error) {
+      } catch {
         return {
           url,
           index,
@@ -367,13 +367,13 @@ export function useBatchURLValidation(options: UseURLValidationOptions = {}) {
 
   const getValidUrls = useCallback(() => {
     return Array.from(results.entries())
-      .filter(([_, result]) => result.isValid)
-      .map(([url, _]) => url)
+      .filter(([, result]) => result.isValid)
+      .map(([url]) => url)
   }, [results])
 
   const getInvalidUrls = useCallback(() => {
     return Array.from(results.entries())
-      .filter(([_, result]) => !result.isValid)
+      .filter(([, result]) => !result.isValid)
       .map(([url, result]) => ({ url, error: result.error }))
   }, [results])
 

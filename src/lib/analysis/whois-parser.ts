@@ -1,9 +1,7 @@
 import type { 
   WhoisData, 
   DomainAgeAnalysis, 
-  WhoisDateFormat,
   RegistrarInfo,
-  PrivacyProtection,
   DomainAgeRisk,
   WhoisMetadata
 } from '../../types/whois'
@@ -58,7 +56,7 @@ export class WhoisParser {
    * Extract structured data from raw WHOIS response
    */
   private static extractWhoisData(rawResponse: string): WhoisData {
-    const lines = rawResponse.toLowerCase().split('\n')
+    rawResponse.toLowerCase().split('\n')
     const parsed: WhoisData['parsed'] = {}
 
     // Extract dates
@@ -92,7 +90,7 @@ export class WhoisParser {
   private static analyzeDomainData(
     domain: string,
     whoisData: WhoisData,
-    metadata?: Partial<WhoisMetadata>
+    _metadata?: Partial<WhoisMetadata>
   ): DomainAgeAnalysis {
     const parsed = whoisData.parsed || {}
     
@@ -231,8 +229,8 @@ export class WhoisParser {
   /**
    * Extract contact information from WHOIS response
    */
-  private static extractContact(response: string, contactType: 'registrant' | 'admin' | 'tech'): any {
-    const contact: any = {}
+  private static extractContact(response: string, contactType: 'registrant' | 'admin' | 'tech'): Record<string, string> | null {
+    const contact: Record<string, string> = {}
     const lines = response.split('\n')
     
     const prefix = contactType === 'registrant' ? 'registrant' : 
@@ -258,7 +256,7 @@ export class WhoisParser {
     if (!dateStr) return null
 
     // Try different date formats
-    for (const [format, pattern] of Object.entries(this.DATE_PATTERNS)) {
+    for (const [_format, pattern] of Object.entries(this.DATE_PATTERNS)) {
       const match = dateStr.match(pattern)
       if (match) {
         const date = new Date(match[1])
