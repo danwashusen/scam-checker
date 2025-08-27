@@ -1,7 +1,8 @@
-const whois = require('whois')
+import * as whois from 'whois'
 import { CacheManager } from '../cache/cache-manager'
 import { WhoisParser } from './whois-parser'
 import { getRootDomain } from '../validation/url-parser'
+import { logger } from '../logger'
 import type { ParsedURL } from '../validation/url-parser'
 import type {
   DomainAgeAnalysis,
@@ -122,7 +123,7 @@ export class WhoisService {
     }
 
     const maxRetries = options?.retries || this.config.maxRetries
-    let lastError: any = null
+    let lastError: unknown = null
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
@@ -142,7 +143,7 @@ export class WhoisService {
         const analysis = WhoisParser.parseWhoisResponse(domain, rawResponse, metadata)
         
         // Log successful lookup
-        console.info(`WHOIS lookup successful for domain: ${domain}`, {
+        logger.info('WHOIS lookup successful', {
           domain,
           ageInDays: analysis.ageInDays,
           registrar: analysis.registrar,
@@ -154,17 +155,18 @@ export class WhoisService {
 
         return analysis
 
-      } catch (error: any) {
+      } catch (error: unknown) {
         lastError = error
         
         if (attempt < maxRetries) {
           // Wait before retry (exponential backoff)
           const delay = Math.min(1000 * Math.pow(2, attempt), 5000)
-          console.warn(`WHOIS lookup failed for ${domain}, retrying in ${delay}ms`, {
+          logger.warn('WHOIS lookup failed, retrying', {
             domain,
             attempt: attempt + 1,
             maxRetries,
-            error: error.message
+            retryDelay: delay,
+            error: error instanceof Error ? error : new Error(String(error))
           })
           
           await this.sleep(delay)
@@ -179,13 +181,13 @@ export class WhoisService {
   /**
    * Wrapper around whois.lookup with Promise support
    */
-  private whoisLookup(domain: string, options: any): Promise<string> {
+  private whoisLookup(domain: string, options: WhoisLookupOptions): Promise<string> {
     return new Promise((resolve, reject) => {
-      whois.lookup(domain, options, (err: any, data: string) => {
+      whois.lookup(domain, options, (err: unknown, data?: string) => {
         if (err) {
           reject(err)
         } else {
-          resolve(data)
+          resolve(data || '')
         }
       })
     })
@@ -220,7 +222,10 @@ export class WhoisService {
     try {
       return await this.cache.get(domain)
     } catch (error) {
-      console.warn(`Cache retrieval failed for domain ${domain}:`, error)
+      logger.warn('Cache retrieval failed for WHOIS domain', {
+        domain,
+        error: error instanceof Error ? error : new Error(String(error))
+      })
       return null
     }
   }
@@ -240,7 +245,10 @@ export class WhoisService {
 
       await this.cache.set(domain, cacheEntry)
     } catch (error) {
-      console.warn(`Failed to cache WHOIS result for domain ${domain}:`, error)
+      logger.warn('Failed to cache WHOIS result', {
+        domain,
+        error: error instanceof Error ? error : new Error(String(error))
+      })
       // Don't throw - caching failure shouldn't break the lookup
     }
   }
@@ -250,12 +258,12 @@ export class WhoisService {
    */
   private handleLookupError(
     domain: string,
-    error: any,
+    error: unknown,
     startTime: number
   ): WhoisLookupResult {
     const whoisError = this.categorizeError(domain, error)
     
-    console.error(`WHOIS lookup failed for domain: ${domain}`, {
+    logger.error('WHOIS lookup failed', {
       domain,
       errorType: whoisError.type,
       errorMessage: whoisError.message,
@@ -269,21 +277,23 @@ export class WhoisService {
   /**
    * Categorize errors for better handling
    */
-  private categorizeError(domain: string, error: any): WhoisError {
+  private categorizeError(domain: string, error: unknown): WhoisError {
     const timestamp = new Date().toISOString()
     
-    if (error.code === 'ENOTFOUND' || error.code === 'ENODATA') {
+    const err = error as { code?: string; message?: string }
+    
+    if (err.code === 'ENOTFOUND' || err.code === 'ENODATA') {
       return {
         type: 'not_found',
         message: 'Domain not found in WHOIS database',
         domain,
         retryable: false,
         timestamp,
-        details: { code: error.code }
+        details: { code: err.code }
       }
     }
     
-    if (error.code === 'ETIMEDOUT' || error.message?.includes('timeout')) {
+    if (err.code === 'ETIMEDOUT' || err.message?.includes('timeout')) {
       return {
         type: 'timeout',
         message: 'WHOIS query timed out',
@@ -294,18 +304,18 @@ export class WhoisService {
       }
     }
     
-    if (error.code === 'ECONNREFUSED' || error.code === 'ECONNRESET') {
+    if (err.code === 'ECONNREFUSED' || err.code === 'ECONNRESET') {
       return {
         type: 'network',
         message: 'Network connection error during WHOIS lookup',
         domain,
         retryable: true,
         timestamp,
-        details: { code: error.code }
+        details: { code: err.code }
       }
     }
     
-    if (error.message?.toLowerCase().includes('rate limit') || error.message?.toLowerCase().includes('quota')) {
+    if (err.message?.toLowerCase().includes('rate limit') || err.message?.toLowerCase().includes('quota')) {
       return {
         type: 'rate_limit',
         message: 'WHOIS server rate limit exceeded',
@@ -318,11 +328,11 @@ export class WhoisService {
     
     return {
       type: 'unknown',
-      message: error.message || 'Unknown WHOIS lookup error',
+      message: err.message || 'Unknown WHOIS lookup error',
       domain,
       retryable: false,
       timestamp,
-      details: error
+      details: err
     }
   }
 

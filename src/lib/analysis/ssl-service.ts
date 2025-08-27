@@ -1,4 +1,5 @@
 import * as tls from 'tls'
+import type { DetailedPeerCertificate } from 'tls'
 import { CacheManager } from '../cache/cache-manager'
 import { getRootDomain } from '../validation/url-parser'
 import { logger } from '../logger'
@@ -278,12 +279,24 @@ export class SSLService {
   /**
    * Build certificate chain from Node.js certificate object
    */
-  private buildCertificateChain(cert: Record<string, unknown>): SSLCertificateChain {
+  private buildCertificateChain(cert: DetailedPeerCertificate): SSLCertificateChain {
     const certificates: SSLCertificateData[] = []
-    let current = cert
+    let current: DetailedPeerCertificate | null = cert
     
     while (current) {
-      certificates.push(current as SSLCertificateData)
+      const certData: SSLCertificateData = {
+        subject: current.subject,
+        issuer: current.issuer,
+        valid_from: current.valid_from,
+        valid_to: current.valid_to,
+        fingerprint: current.fingerprint,
+        fingerprint256: current.fingerprint256,
+        serialNumber: current.serialNumber,
+        ext_key_usage: current.ext_key_usage || [],
+        subjectaltname: current.subjectaltname,
+        raw: current.raw
+      }
+      certificates.push(certData)
       current = current.issuerCertificate !== current ? current.issuerCertificate : null
     }
 
@@ -793,7 +806,9 @@ export class SSLService {
   private categorizeError(domain: string, port: number, error: unknown): SSLError {
     const timestamp = new Date().toISOString()
     
-    if (error.code === 'ENOTFOUND') {
+    const err = error as { code?: string; message?: string }
+    
+    if (err.code === 'ENOTFOUND') {
       return {
         type: 'network',
         message: 'Host not found',
@@ -801,11 +816,11 @@ export class SSLService {
         port,
         retryable: false,
         timestamp,
-        details: { code: error.code }
+        details: { code: err.code }
       }
     }
     
-    if (error.code === 'ETIMEDOUT' || error.message?.includes('timeout')) {
+    if (err.code === 'ETIMEDOUT' || err.message?.includes('timeout')) {
       return {
         type: 'timeout',
         message: 'SSL connection timeout',
@@ -817,7 +832,7 @@ export class SSLService {
       }
     }
     
-    if (error.code === 'ECONNREFUSED') {
+    if (err.code === 'ECONNREFUSED') {
       return {
         type: 'connection',
         message: 'Connection refused - SSL/TLS service unavailable',
@@ -825,11 +840,11 @@ export class SSLService {
         port,
         retryable: true,
         timestamp,
-        details: { code: error.code }
+        details: { code: err.code }
       }
     }
     
-    if (error.message?.includes('certificate') || error.code === 'CERT_UNTRUSTED') {
+    if (err.message?.includes('certificate') || err.code === 'CERT_UNTRUSTED') {
       return {
         type: 'certificate',
         message: 'Certificate validation error',
@@ -843,12 +858,12 @@ export class SSLService {
     
     return {
       type: 'unknown',
-      message: error.message || 'Unknown SSL analysis error',
+      message: err.message || 'Unknown SSL analysis error',
       domain,
       port,
       retryable: false,
       timestamp,
-      details: error
+      details: err
     }
   }
 

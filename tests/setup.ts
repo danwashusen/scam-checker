@@ -39,19 +39,15 @@ Object.defineProperty(process.env, 'NEXT_PUBLIC_APP_URL', { value: 'http://local
 
 // Global test utilities
 import fetchMock from 'jest-fetch-mock'
-global.fetch = fetchMock
+global.fetch = fetchMock as unknown as typeof fetch
 
 // Polyfill for Node.js APIs in JSDOM environment
 if (typeof global.setImmediate === 'undefined') {
-  global.setImmediate = (callback: (...args: unknown[]) => void, ...args: unknown[]) => {
-    return setTimeout(callback, 0, ...args) as unknown as NodeJS.Immediate
-  }
+  global.setImmediate = setTimeout as unknown as typeof setImmediate
 }
 
 if (typeof global.clearImmediate === 'undefined') {
-  global.clearImmediate = (immediateId: NodeJS.Immediate) => {
-    clearTimeout(immediateId as unknown as NodeJS.Timeout)
-  }
+  global.clearImmediate = clearTimeout as unknown as typeof clearImmediate
 }
 
 // Suppress console errors during tests unless explicitly needed

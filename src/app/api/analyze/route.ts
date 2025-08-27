@@ -7,19 +7,21 @@ import { validateAnalysisRequest, formatValidationError } from '../../../lib/val
 import { defaultWhoisService } from '../../../lib/analysis/whois-service'
 import { defaultSSLService } from '../../../lib/analysis/ssl-service'
 import { logger } from '../../../lib/logger'
-import type { URLAnalysisResult } from '../../../types/url'
+import type { URLAnalysisResult, URLValidationOptions, SanitizationOptions } from '../../../types/url'
 import type { DomainAgeAnalysis } from '../../../types/whois'
 import type { SSLCertificateAnalysis } from '../../../types/ssl'
+
+interface RiskFactor {
+  type: string
+  score: number
+  description: string
+}
 
 interface AnalysisResult {
   url: string
   riskScore: number
   riskLevel: 'low' | 'medium' | 'high'
-  factors: Array<{
-    type: string
-    score: number
-    description: string
-  }>
+  factors: RiskFactor[]
   explanation: string
   timestamp: string
   domainAge?: {
@@ -153,7 +155,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function performURLAnalysis(inputUrl: string, options?: { validation?: unknown; sanitization?: unknown; skipSanitization?: boolean }): Promise<URLAnalysisResult> {
+async function performURLAnalysis(inputUrl: string, options?: { validation?: URLValidationOptions; sanitization?: SanitizationOptions; skipSanitization?: boolean }): Promise<URLAnalysisResult> {
   const startTime = Date.now()
   
   // Step 1: Validate URL
@@ -466,7 +468,7 @@ async function generateAnalysisWithAll(analysis: URLAnalysisResult): Promise<Ana
 
 function generateExplanation(
   riskLevel: string, 
-  factors: Array<{ type: string }>, 
+  factors: RiskFactor[], 
   analysis: URLAnalysisResult,
   domainAge?: AnalysisResult['domainAge'],
   sslCertificate?: AnalysisResult['sslCertificate']

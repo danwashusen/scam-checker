@@ -16,6 +16,7 @@ class Logger {
 
   constructor() {
     const isLambda = !!process.env.AWS_LAMBDA_FUNCTION_NAME
+    const isBuild = process.env.NODE_ENV === 'production' || process.env.NEXT_PHASE === 'phase-production-build'
     
     if (isLambda) {
       // Lambda environment - use pino-lambda for CloudWatch optimization
@@ -28,6 +29,11 @@ class Logger {
         },
         pinoLambdaDestination()
       )
+    } else if (isBuild) {
+      // Build time - use simple logger to avoid worker issues
+      this.logger = pino({
+        level: 'silent', // Minimize build-time logging
+      })
     } else {
       // Local development - pretty print
       this.logger = pino({
@@ -38,6 +44,7 @@ class Logger {
             colorize: true,
             ignore: 'pid,hostname',
             translateTime: 'SYS:yyyy-mm-dd HH:MM:ss',
+            sync: true, // Disable worker threads
           },
         },
       })
