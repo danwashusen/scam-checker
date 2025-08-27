@@ -5,8 +5,11 @@ import { sanitizeURL } from '../../../lib/validation/url-sanitizer'
 import { sanitizeForLogging } from '../../../lib/validation/url-sanitizer'
 import { validateAnalysisRequest, formatValidationError } from '../../../lib/validation/schemas'
 import { defaultWhoisService } from '../../../lib/analysis/whois-service'
-import type { URLAnalysisResult, URLValidationError } from '../../../types/url'
+import { defaultSSLService } from '../../../lib/analysis/ssl-service'
+import { logger } from '../../../lib/logger'
+import type { URLAnalysisResult } from '../../../types/url'
 import type { DomainAgeAnalysis } from '../../../types/whois'
+import type { SSLCertificateAnalysis } from '../../../types/ssl'
 
 interface AnalysisResult {
   url: string
@@ -27,10 +30,20 @@ interface AnalysisResult {
     fromCache: boolean
     error?: string
   }
+  sslCertificate?: {
+    certificateType: string | null
+    certificateAuthority: string | null
+    daysUntilExpiry: number | null
+    issuedDate: string | null
+    analysis: SSLCertificateAnalysis | null
+    fromCache: boolean
+    error?: string
+  }
 }
 
 export async function POST(request: NextRequest) {
-  const startTime = Date.now()
+  const requestStartTime = Date.now()
+  const timer = logger.timer('URL analysis request')
   
   try {
     const body = await request.json()
@@ -39,7 +52,8 @@ export async function POST(request: NextRequest) {
     const requestValidation = validateAnalysisRequest(body)
     if (!requestValidation.success) {
       const errorMessage = formatValidationError(requestValidation.error)
-      console.warn(`URL validation failed: ${errorMessage}`, {
+      logger.warn('URL validation failed', {
+        message: errorMessage,
         input: sanitizeForLogging(body?.url || 'undefined'),
         errors: requestValidation.error.errors,
       })
@@ -66,7 +80,8 @@ export async function POST(request: NextRequest) {
     const urlAnalysis = await performURLAnalysis(inputUrl, options)
     
     if (!urlAnalysis.validation.isValid) {
-      console.warn(`URL validation failed: ${urlAnalysis.validation.error}`, {
+      logger.warn('URL validation failed', {
+        errorMessage: urlAnalysis.validation.error,
         input: sanitizeForLogging(inputUrl),
         errorType: urlAnalysis.validation.errorType,
       })
@@ -88,13 +103,25 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Generate comprehensive analysis result including WHOIS data
-    const mockResult: AnalysisResult = await generateAnalysisWithWhois(urlAnalysis)
+    // Generate comprehensive analysis result including WHOIS and SSL data
+    const mockResult: AnalysisResult = await generateAnalysisWithAll(urlAnalysis)
     
-    console.info(`URL analysis completed successfully`, {
+    const finalProcessingTime = Date.now() - requestStartTime
+    
+    timer.end({
       url: sanitizeForLogging(urlAnalysis.final),
-      processingTime: urlAnalysis.metadata.processingTimeMs,
+      processingTime: finalProcessingTime,
       riskLevel: mockResult.riskLevel,
+    })
+
+    // Log successful analysis for monitoring
+    logger.info('URL analysis completed successfully', {
+      url: sanitizeForLogging(urlAnalysis.final),
+      processingTime: finalProcessingTime,
+      riskLevel: mockResult.riskLevel,
+      riskScore: mockResult.riskScore,
+      factorsCount: mockResult.factors.length,
+      timestamp: new Date().toISOString()
     })
 
     return NextResponse.json({
@@ -109,9 +136,8 @@ export async function POST(request: NextRequest) {
       timestamp: new Date().toISOString(),
     })
   } catch (error) {
-    const processingTime = Date.now() - startTime
-    console.error('Analysis API error:', error, {
-      processingTime,
+    logger.error('Analysis API error', {
+      error: error instanceof Error ? error : new Error(String(error)),
       timestamp: new Date().toISOString(),
     })
     
@@ -127,7 +153,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function performURLAnalysis(inputUrl: string, options?: any): Promise<URLAnalysisResult> {
+async function performURLAnalysis(inputUrl: string, options?: { validation?: unknown; sanitization?: unknown; skipSanitization?: boolean }): Promise<URLAnalysisResult> {
   const startTime = Date.now()
   
   // Step 1: Validate URL
@@ -149,8 +175,9 @@ async function performURLAnalysis(inputUrl: string, options?: any): Promise<URLA
       } else {
         finalUrl = validationResult.normalizedUrl || inputUrl
       }
-    } catch (parseError) {
-      console.warn(`URL parsing failed: ${parseError}`, {
+    } catch (parseError: unknown) {
+      logger.warn('URL parsing failed', {
+        error: parseError instanceof Error ? parseError : new Error(String(parseError)),
         input: sanitizeForLogging(inputUrl),
       })
       // Continue with validation result if parsing fails
@@ -174,13 +201,14 @@ async function performURLAnalysis(inputUrl: string, options?: any): Promise<URLA
   }
 }
 
-async function generateAnalysisWithWhois(analysis: URLAnalysisResult): Promise<AnalysisResult> {
-  const { parsed, validation, sanitization } = analysis
+async function generateAnalysisWithAll(analysis: URLAnalysisResult): Promise<AnalysisResult> {
+  const { parsed, sanitization } = analysis
   
   // Generate risk factors based on URL analysis
   const factors = []
   let totalRiskScore = 0
   let domainAge: AnalysisResult['domainAge'] = undefined
+  let sslCertificate: AnalysisResult['sslCertificate'] = undefined
 
   // Perform WHOIS analysis if we have a valid domain (not IP)
   if (parsed && !parsed.isIP) {
@@ -208,7 +236,7 @@ async function generateAnalysisWithWhois(analysis: URLAnalysisResult): Promise<A
           totalRiskScore += factor.score
         })
 
-        console.info(`WHOIS analysis completed for domain: ${parsed.domain}`, {
+        logger.info('WHOIS analysis completed', {
           domain: parsed.domain,
           ageInDays: whoisAnalysis.ageInDays,
           registrar: whoisAnalysis.registrar,
@@ -233,7 +261,7 @@ async function generateAnalysisWithWhois(analysis: URLAnalysisResult): Promise<A
         })
         totalRiskScore += 0.3
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Handle unexpected WHOIS errors
       domainAge = {
         ageInDays: null,
@@ -241,10 +269,13 @@ async function generateAnalysisWithWhois(analysis: URLAnalysisResult): Promise<A
         registrar: null,
         analysis: null,
         fromCache: false,
-        error: error.message || 'Unexpected WHOIS lookup error'
+        error: error instanceof Error ? error.message : 'Unexpected WHOIS lookup error'
       }
       
-      console.warn(`WHOIS lookup error for domain ${parsed.domain}:`, error)
+      logger.warn('WHOIS lookup error', {
+        domain: parsed.domain,
+        error: error as Error
+      })
       
       factors.push({
         type: 'domain-age-error',
@@ -252,6 +283,88 @@ async function generateAnalysisWithWhois(analysis: URLAnalysisResult): Promise<A
         description: 'Domain age lookup encountered an error'
       })
       totalRiskScore += 0.2
+    }
+  }
+
+  // Perform SSL certificate analysis if using HTTPS
+  if (parsed && !parsed.isIP && analysis.final.startsWith('https:')) {
+    try {
+      const sslResult = await defaultSSLService.analyzeCertificate(parsed)
+      
+      if (sslResult.success && sslResult.data) {
+        const sslAnalysis = sslResult.data
+        
+        sslCertificate = {
+          certificateType: sslAnalysis.certificateType,
+          certificateAuthority: sslAnalysis.certificateAuthority?.name || null,
+          daysUntilExpiry: sslAnalysis.daysUntilExpiry,
+          issuedDate: sslAnalysis.issuedDate?.toISOString() || null,
+          analysis: sslAnalysis,
+          fromCache: sslResult.fromCache
+        }
+
+        // Add SSL-based risk factors
+        sslAnalysis.riskFactors.forEach(factor => {
+          // Convert SSL risk scores (0-100) to normalized scores (0-1)
+          const normalizedScore = factor.score / 100
+          factors.push({
+            type: `ssl-${factor.type}`,
+            score: normalizedScore,
+            description: factor.description
+          })
+          totalRiskScore += normalizedScore
+        })
+
+        logger.info('SSL certificate analysis completed', {
+          domain: parsed.domain,
+          certificateType: sslAnalysis.certificateType,
+          ca: sslAnalysis.certificateAuthority?.name,
+          daysUntilExpiry: sslAnalysis.daysUntilExpiry,
+          score: sslAnalysis.score,
+          fromCache: sslResult.fromCache
+        })
+      } else {
+        // SSL analysis failed, add fallback risk factor
+        sslCertificate = {
+          certificateType: null,
+          certificateAuthority: null,
+          daysUntilExpiry: null,
+          issuedDate: null,
+          analysis: null,
+          fromCache: false,
+          error: sslResult.error?.message || 'SSL certificate analysis failed'
+        }
+        
+        factors.push({
+          type: 'ssl-unavailable',
+          score: 0.2, // Moderate risk when SSL analysis fails
+          description: 'Could not analyze SSL certificate'
+        })
+        totalRiskScore += 0.2
+      }
+    } catch (error: unknown) {
+      // Handle unexpected SSL errors
+      sslCertificate = {
+        certificateType: null,
+        certificateAuthority: null,
+        daysUntilExpiry: null,
+        issuedDate: null,
+        analysis: null,
+        fromCache: false,
+        error: error instanceof Error ? error.message : 'Unexpected SSL certificate analysis error'
+      }
+      
+      logger.warn('SSL certificate analysis error', {
+        domain: parsed.domain,
+        error: error as Error
+      })
+      
+      factors.push({
+        type: 'ssl-error',
+        score: 0.1, // Lower risk for system errors vs unavailable SSL
+        description: 'SSL certificate analysis encountered an error'
+      })
+      totalRiskScore += 0.1
     }
   }
   
@@ -337,7 +450,7 @@ async function generateAnalysisWithWhois(analysis: URLAnalysisResult): Promise<A
   }
   
   // Generate explanation
-  const explanation = generateExplanation(riskLevel, factors, analysis, domainAge)
+  const explanation = generateExplanation(riskLevel, factors, analysis, domainAge, sslCertificate)
   
   return {
     url: analysis.final,
@@ -347,14 +460,16 @@ async function generateAnalysisWithWhois(analysis: URLAnalysisResult): Promise<A
     explanation,
     timestamp: new Date().toISOString(),
     domainAge,
+    sslCertificate,
   }
 }
 
 function generateExplanation(
   riskLevel: string, 
-  factors: any[], 
+  factors: Array<{ type: string }>, 
   analysis: URLAnalysisResult,
-  domainAge?: AnalysisResult['domainAge']
+  domainAge?: AnalysisResult['domainAge'],
+  sslCertificate?: AnalysisResult['sslCertificate']
 ): string {
   const positiveFactors = factors.filter(f => f.score === 0)
   const negativeFactors = factors.filter(f => f.score > 0)
@@ -391,6 +506,32 @@ function generateExplanation(
     }
   } else if (domainAge?.error) {
     explanation += 'Domain age analysis was not available due to WHOIS lookup limitations. '
+  }
+
+  // Add SSL certificate context
+  if (sslCertificate?.analysis) {
+    const ssl = sslCertificate.analysis
+    if (ssl.daysUntilExpiry !== null) {
+      if (ssl.daysUntilExpiry < 0) {
+        explanation += 'The SSL certificate has expired, which is a significant security risk. '
+      } else if (ssl.daysUntilExpiry <= 30) {
+        explanation += `The SSL certificate expires in ${ssl.daysUntilExpiry} days. `
+      } else {
+        explanation += `The SSL certificate is valid for ${ssl.daysUntilExpiry} more days. `
+      }
+    }
+    
+    if (ssl.certificateType === 'self-signed') {
+      explanation += 'The site uses a self-signed SSL certificate, which increases security risk. '
+    } else if (ssl.certificateType === 'EV') {
+      explanation += 'The site uses an Extended Validation SSL certificate, indicating higher trust. '
+    }
+    
+    if (ssl.certificateAge !== null && ssl.certificateAge <= 30) {
+      explanation += 'The SSL certificate was issued very recently, which may indicate a new or potentially suspicious site. '
+    }
+  } else if (sslCertificate?.error && analysis.final.startsWith('https:')) {
+    explanation += 'SSL certificate analysis was not available, which may indicate connection or certificate issues. '
   }
   
   if (negativeFactors.length > 0) {
@@ -451,6 +592,7 @@ export async function GET() {
         'Tracking parameter removal',
         'Risk assessment based on URL characteristics',
         'Domain age analysis via WHOIS data',
+        'SSL/TLS certificate security analysis',
         'Cached WHOIS lookups for performance',
         'Domain registration pattern analysis',
         'Registrar reputation scoring',

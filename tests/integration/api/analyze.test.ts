@@ -47,6 +47,21 @@ jest.mock('../../../src/lib/analysis/whois-service', () => ({
   }
 }))
 
+// Mock the logger module
+jest.mock('../../../src/lib/logger', () => ({
+  logger: {
+    warn: jest.fn(),
+    error: jest.fn(),
+    info: jest.fn(),
+    debug: jest.fn(),
+    timer: jest.fn().mockReturnValue({
+      end: jest.fn()
+    })
+  }
+}))
+
+const { logger: mockLogger } = require('../../../src/lib/logger')
+
 // Mock console methods to avoid test output pollution
 const mockConsole = {
   warn: jest.fn(),
@@ -60,6 +75,7 @@ beforeAll(() => {
 
 beforeEach(() => {
   Object.values(mockConsole).forEach(mock => mock.mockClear())
+  jest.clearAllMocks()
 })
 
 describe('/api/analyze', () => {
@@ -192,7 +208,7 @@ describe('/api/analyze', () => {
           expect(response.status).toBe(200)
           expect(['low', 'medium', 'high']).toContain(data.data.riskLevel)
         }
-      })
+      }, 10000)
     })
 
     describe('validation errors', () => {
@@ -375,7 +391,7 @@ describe('/api/analyze', () => {
         const request = createRequest({ url: 'invalid-url' })
         await POST(request)
 
-        expect(mockConsole.warn).toHaveBeenCalledWith(
+        expect(mockLogger.warn).toHaveBeenCalledWith(
           expect.stringContaining('URL validation failed'),
           expect.any(Object)
         )
@@ -385,7 +401,7 @@ describe('/api/analyze', () => {
         const request = createRequest({ url: 'https://example.com' })
         await POST(request)
 
-        expect(mockConsole.info).toHaveBeenCalledWith(
+        expect(mockLogger.info).toHaveBeenCalledWith(
           expect.stringContaining('URL analysis completed successfully'),
           expect.any(Object)
         )
@@ -396,7 +412,7 @@ describe('/api/analyze', () => {
         await POST(request)
 
         // Check that sensitive info was redacted in logs
-        const logCall = mockConsole.info.mock.calls.find(call => 
+        const logCall = mockLogger.info.mock.calls.find(call => 
           call[0].includes('completed successfully')
         )
         expect(logCall).toBeDefined()
@@ -407,7 +423,7 @@ describe('/api/analyze', () => {
         const request = createRequest({ url: 'https://example.com' })
         await POST(request)
 
-        const logCall = mockConsole.info.mock.calls.find(call => 
+        const logCall = mockLogger.info.mock.calls.find(call => 
           call[0].includes('completed successfully')
         )
         expect(logCall).toBeDefined()
