@@ -1,0 +1,223 @@
+import type { CacheInterface, CacheOptions, CacheEntry, CacheStats } from './cache-types'
+import { NoOpCache } from './no-op-cache'
+
+/**
+ * CacheManager - Generic cache implementation with configurable backing store
+ * Supports multiple instances for different data types with separate TTLs
+ * 
+ * Usage:
+ * const whoisCache = new CacheManager<WhoisData>({
+ *   prefix: 'whois',
+ *   ttl: 24 * 60 * 60 * 1000, // 24 hours
+ *   maxSize: 1000
+ * });
+ */
+export class CacheManager<T> {
+  private cache: CacheInterface<CacheEntry<T>>
+  private options: Required<CacheOptions>
+  private stats: CacheStats = {
+    hits: 0,
+    misses: 0,
+    hitRate: 0,
+    size: 0,
+    maxSize: 0,
+  }
+
+  constructor(
+    options: CacheOptions,
+    cacheImpl?: CacheInterface<CacheEntry<T>>
+  ) {
+    this.options = {
+      maxSize: 1000,
+      ...options,
+    }
+    
+    // Use provided cache implementation or default to NoOpCache for MVP
+    this.cache = cacheImpl || new NoOpCache<CacheEntry<T>>()
+    this.stats.maxSize = this.options.maxSize
+  }
+
+  /**
+   * Get item from cache if it exists and hasn't expired
+   */
+  async get(key: string): Promise<T | null> {
+    const cacheKey = this.buildKey(key)
+    
+    try {
+      const entry = await this.cache.get(cacheKey)
+      
+      if (!entry) {
+        this.stats.misses++
+        this.updateHitRate()
+        return null
+      }
+
+      // Check if entry has expired
+      if (entry.expiresAt < Date.now()) {
+        // Remove expired entry
+        await this.cache.delete(cacheKey)
+        this.stats.misses++
+        this.updateHitRate()
+        return null
+      }
+
+      this.stats.hits++
+      this.updateHitRate()
+      return entry.data
+    } catch (error) {
+      console.error(`Cache get error for key ${cacheKey}:`, error)
+      this.stats.misses++
+      this.updateHitRate()
+      return null
+    }
+  }
+
+  /**
+   * Set item in cache with TTL
+   */
+  async set(key: string, value: T, customTtl?: number): Promise<void> {
+    const cacheKey = this.buildKey(key)
+    const ttl = customTtl || this.options.ttl
+    const now = Date.now()
+    
+    const entry: CacheEntry<T> = {
+      data: value,
+      expiresAt: now + ttl,
+      createdAt: now,
+    }
+
+    try {
+      await this.cache.set(cacheKey, entry, ttl)
+      await this.updateSize()
+    } catch (error) {
+      console.error(`Cache set error for key ${cacheKey}:`, error)
+      // Continue operation even if cache fails
+    }
+  }
+
+  /**
+   * Delete item from cache
+   */
+  async delete(key: string): Promise<boolean> {
+    const cacheKey = this.buildKey(key)
+    
+    try {
+      const deleted = await this.cache.delete(cacheKey)
+      if (deleted) {
+        await this.updateSize()
+      }
+      return deleted
+    } catch (error) {
+      console.error(`Cache delete error for key ${cacheKey}:`, error)
+      return false
+    }
+  }
+
+  /**
+   * Check if key exists in cache
+   */
+  async has(key: string): Promise<boolean> {
+    const cacheKey = this.buildKey(key)
+    
+    try {
+      return await this.cache.has(cacheKey)
+    } catch (error) {
+      console.error(`Cache has error for key ${cacheKey}:`, error)
+      return false
+    }
+  }
+
+  /**
+   * Clear all entries from this cache instance
+   */
+  async clear(): Promise<void> {
+    try {
+      await this.cache.clear()
+      this.stats.size = 0
+    } catch (error) {
+      console.error('Cache clear error:', error)
+    }
+  }
+
+  /**
+   * Get cache statistics
+   */
+  getStats(): CacheStats {
+    return { ...this.stats }
+  }
+
+  /**
+   * Clean up expired entries
+   */
+  async cleanup(): Promise<number> {
+    let cleaned = 0
+    
+    try {
+      const keys = await this.cache.keys()
+      const now = Date.now()
+      
+      for (const key of keys) {
+        if (!key.startsWith(this.options.prefix + ':')) {
+          continue // Skip keys that don't belong to this cache instance
+        }
+        
+        const entry = await this.cache.get(key)
+        if (entry && entry.expiresAt < now) {
+          await this.cache.delete(key)
+          cleaned++
+        }
+      }
+      
+      await this.updateSize()
+    } catch (error) {
+      console.error('Cache cleanup error:', error)
+    }
+    
+    return cleaned
+  }
+
+  /**
+   * Get or set pattern - retrieve from cache or compute and cache the result
+   */
+  async getOrSet(
+    key: string,
+    factory: () => Promise<T>,
+    customTtl?: number
+  ): Promise<T> {
+    const cached = await this.get(key)
+    if (cached !== null) {
+      return cached
+    }
+
+    const value = await factory()
+    await this.set(key, value, customTtl)
+    return value
+  }
+
+  /**
+   * Build cache key with prefix
+   */
+  private buildKey(key: string): string {
+    return `${this.options.prefix}:${key}`
+  }
+
+  /**
+   * Update hit rate calculation
+   */
+  private updateHitRate(): void {
+    const total = this.stats.hits + this.stats.misses
+    this.stats.hitRate = total > 0 ? this.stats.hits / total : 0
+  }
+
+  /**
+   * Update cache size stats
+   */
+  private async updateSize(): Promise<void> {
+    try {
+      this.stats.size = await this.cache.size()
+    } catch (error) {
+      // Size tracking is not critical, continue without it
+      console.warn('Could not update cache size stats:', error)
+    }
+  }
+}

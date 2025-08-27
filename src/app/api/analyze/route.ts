@@ -4,7 +4,9 @@ import { parseURL } from '../../../lib/validation/url-parser'
 import { sanitizeURL } from '../../../lib/validation/url-sanitizer'
 import { sanitizeForLogging } from '../../../lib/validation/url-sanitizer'
 import { validateAnalysisRequest, formatValidationError } from '../../../lib/validation/schemas'
+import { defaultWhoisService } from '../../../lib/analysis/whois-service'
 import type { URLAnalysisResult, URLValidationError } from '../../../types/url'
+import type { DomainAgeAnalysis } from '../../../types/whois'
 
 interface AnalysisResult {
   url: string
@@ -17,6 +19,14 @@ interface AnalysisResult {
   }>
   explanation: string
   timestamp: string
+  domainAge?: {
+    ageInDays: number | null
+    registrationDate: string | null
+    registrar: string | null
+    analysis: DomainAgeAnalysis | null
+    fromCache: boolean
+    error?: string
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -78,8 +88,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Generate mock analysis result using validated and parsed URL data
-    const mockResult: AnalysisResult = generateMockAnalysis(urlAnalysis)
+    // Generate comprehensive analysis result including WHOIS data
+    const mockResult: AnalysisResult = await generateAnalysisWithWhois(urlAnalysis)
     
     console.info(`URL analysis completed successfully`, {
       url: sanitizeForLogging(urlAnalysis.final),
@@ -164,12 +174,86 @@ async function performURLAnalysis(inputUrl: string, options?: any): Promise<URLA
   }
 }
 
-function generateMockAnalysis(analysis: URLAnalysisResult): AnalysisResult {
+async function generateAnalysisWithWhois(analysis: URLAnalysisResult): Promise<AnalysisResult> {
   const { parsed, validation, sanitization } = analysis
   
   // Generate risk factors based on URL analysis
   const factors = []
   let totalRiskScore = 0
+  let domainAge: AnalysisResult['domainAge'] = undefined
+
+  // Perform WHOIS analysis if we have a valid domain (not IP)
+  if (parsed && !parsed.isIP) {
+    try {
+      const whoisResult = await defaultWhoisService.analyzeDomain(parsed)
+      
+      if (whoisResult.success && whoisResult.data) {
+        const whoisAnalysis = whoisResult.data
+        
+        domainAge = {
+          ageInDays: whoisAnalysis.ageInDays,
+          registrationDate: whoisAnalysis.registrationDate?.toISOString() || null,
+          registrar: whoisAnalysis.registrar,
+          analysis: whoisAnalysis,
+          fromCache: whoisResult.fromCache
+        }
+
+        // Add WHOIS-based risk factors
+        whoisAnalysis.riskFactors.forEach(factor => {
+          factors.push({
+            type: factor.type,
+            score: factor.score,
+            description: factor.description
+          })
+          totalRiskScore += factor.score
+        })
+
+        console.info(`WHOIS analysis completed for domain: ${parsed.domain}`, {
+          domain: parsed.domain,
+          ageInDays: whoisAnalysis.ageInDays,
+          registrar: whoisAnalysis.registrar,
+          score: whoisAnalysis.score,
+          fromCache: whoisResult.fromCache
+        })
+      } else {
+        // WHOIS lookup failed, add fallback risk factor
+        domainAge = {
+          ageInDays: null,
+          registrationDate: null,
+          registrar: null,
+          analysis: null,
+          fromCache: false,
+          error: whoisResult.error?.message || 'WHOIS lookup failed'
+        }
+        
+        factors.push({
+          type: 'domain-age-unknown',
+          score: 0.3, // Moderate risk when we can't determine age
+          description: 'Could not determine domain age from WHOIS data'
+        })
+        totalRiskScore += 0.3
+      }
+    } catch (error: any) {
+      // Handle unexpected WHOIS errors
+      domainAge = {
+        ageInDays: null,
+        registrationDate: null,
+        registrar: null,
+        analysis: null,
+        fromCache: false,
+        error: error.message || 'Unexpected WHOIS lookup error'
+      }
+      
+      console.warn(`WHOIS lookup error for domain ${parsed.domain}:`, error)
+      
+      factors.push({
+        type: 'domain-age-error',
+        score: 0.2, // Lower risk for system errors vs unknown age
+        description: 'Domain age lookup encountered an error'
+      })
+      totalRiskScore += 0.2
+    }
+  }
   
   // Domain analysis factor
   if (parsed) {
@@ -253,7 +337,7 @@ function generateMockAnalysis(analysis: URLAnalysisResult): AnalysisResult {
   }
   
   // Generate explanation
-  const explanation = generateExplanation(riskLevel, factors, analysis)
+  const explanation = generateExplanation(riskLevel, factors, analysis, domainAge)
   
   return {
     url: analysis.final,
@@ -262,10 +346,16 @@ function generateMockAnalysis(analysis: URLAnalysisResult): AnalysisResult {
     factors,
     explanation,
     timestamp: new Date().toISOString(),
+    domainAge,
   }
 }
 
-function generateExplanation(riskLevel: string, factors: any[], analysis: URLAnalysisResult): string {
+function generateExplanation(
+  riskLevel: string, 
+  factors: any[], 
+  analysis: URLAnalysisResult,
+  domainAge?: AnalysisResult['domainAge']
+): string {
   const positiveFactors = factors.filter(f => f.score === 0)
   const negativeFactors = factors.filter(f => f.score > 0)
   
@@ -280,6 +370,27 @@ function generateExplanation(riskLevel: string, factors: any[], analysis: URLAna
     explanation += 'The URL shows some potential risk indicators that warrant caution. '
   } else {
     explanation += 'The URL exhibits multiple risk factors and should be approached with extreme caution. '
+  }
+  
+  // Add domain age context
+  if (domainAge?.analysis) {
+    const ageInDays = domainAge.analysis.ageInDays
+    if (ageInDays !== null) {
+      if (ageInDays < 30) {
+        explanation += `The domain was registered very recently (${ageInDays} days ago), which increases risk. `
+      } else if (ageInDays < 365) {
+        explanation += `The domain was registered ${ageInDays} days ago. `
+      } else {
+        const years = Math.round(ageInDays / 365 * 10) / 10
+        explanation += `The domain has been registered for ${years} years, indicating established presence. `
+      }
+    }
+    
+    if (domainAge.analysis.privacyProtected) {
+      explanation += 'The domain uses privacy protection which may obscure ownership details. '
+    }
+  } else if (domainAge?.error) {
+    explanation += 'Domain age analysis was not available due to WHOIS lookup limitations. '
   }
   
   if (negativeFactors.length > 0) {
@@ -339,6 +450,11 @@ export async function GET() {
         'URL sanitization and normalization',
         'Tracking parameter removal',
         'Risk assessment based on URL characteristics',
+        'Domain age analysis via WHOIS data',
+        'Cached WHOIS lookups for performance',
+        'Domain registration pattern analysis',
+        'Registrar reputation scoring',
+        'Privacy protection detection',
         'Detailed logging and error reporting',
       ],
       security: {

@@ -17,6 +17,36 @@ jest.mock('next/server', () => {
   }
 })
 
+// Mock WHOIS service to avoid real network calls
+jest.mock('../../../src/lib/analysis/whois-service', () => ({
+  defaultWhoisService: {
+    analyzeDomain: jest.fn().mockResolvedValue({
+      success: true,
+      domain: 'example.com',
+      data: {
+        ageInDays: 1000,
+        registrationDate: new Date('2021-01-01'),
+        expirationDate: new Date('2025-01-01'),
+        updatedDate: new Date('2023-01-01'),
+        registrar: 'Mock Registrar Inc.',
+        nameservers: ['ns1.example.com'],
+        status: ['active'],
+        score: 0.2,
+        confidence: 0.9,
+        privacyProtected: false,
+        registrantCountry: 'US',
+        riskFactors: [{
+          type: 'age',
+          description: 'Domain is established (2.7 years old)',
+          score: 0.2
+        }]
+      },
+      fromCache: false,
+      processingTimeMs: 100
+    })
+  }
+}))
+
 // Mock console methods to avoid test output pollution
 const mockConsole = {
   warn: jest.fn(),
