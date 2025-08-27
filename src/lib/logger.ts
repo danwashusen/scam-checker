@@ -18,6 +18,7 @@ class Logger {
     const isLambda = !!process.env.AWS_LAMBDA_FUNCTION_NAME
     const isBuild = process.env.NODE_ENV === 'production' || process.env.NEXT_PHASE === 'phase-production-build'
     const isTest = process.env.NODE_ENV === 'test' || process.env.JEST_TEST_ENVIRONMENT === 'jsdom'
+    const isDev = process.env.NODE_ENV === 'development' || !process.env.NODE_ENV
     
     if (isTest) {
       // Test environment - use simple logger to avoid worker thread issues with JSDOM
@@ -40,19 +41,19 @@ class Logger {
       this.logger = pino({
         level: 'silent', // Minimize build-time logging
       })
-    } else {
-      // Local development - pretty print
+    } else if (isDev) {
+      // Development environment - use simple logger to avoid worker thread issues in Next.js
       this.logger = pino({
         level: process.env.LOG_LEVEL || 'debug',
-        transport: {
-          target: 'pino-pretty',
-          options: {
-            colorize: true,
-            ignore: 'pid,hostname',
-            translateTime: 'SYS:yyyy-mm-dd HH:MM:ss',
-            sync: true, // Disable worker threads
-          },
+        formatters: {
+          level: (label) => ({ level: label }),
         },
+        // No transport to avoid worker threads
+      })
+    } else {
+      // Fallback - simple logger
+      this.logger = pino({
+        level: process.env.LOG_LEVEL || 'info',
       })
     }
   }
