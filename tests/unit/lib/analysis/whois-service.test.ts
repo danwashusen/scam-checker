@@ -1,14 +1,15 @@
 import { WhoisService } from '../../../../src/lib/analysis/whois-service'
 import { CacheManager } from '../../../../src/lib/cache/cache-manager'
 import type { ParsedURL } from '../../../../src/lib/validation/url-parser'
-import type { WhoisCacheEntry, DomainAgeAnalysis } from '../../../../src/types/whois'
+import type { WhoisCacheEntry } from '../../../../src/types/whois'
 
 // Mock the whois module
 jest.mock('whois', () => ({
   lookup: jest.fn()
 }))
 
-const mockWhois = require('whois')
+import * as whoisModule from 'whois'
+const mockWhois = whoisModule as jest.Mocked<typeof whoisModule>
 
 describe('WhoisService', () => {
   let whoisService: WhoisService
@@ -61,7 +62,7 @@ Registrant Country: US
       getStats: jest.fn(),
       cleanup: jest.fn(),
       getOrSet: jest.fn()
-    } as any
+    } as jest.Mocked<CacheManager<WhoisCacheEntry>>
 
     // Create service with mock cache
     whoisService = new WhoisService({
@@ -73,12 +74,12 @@ Registrant Country: US
     })
 
     // Replace the cache manager with our mock
-    ;(whoisService as any).cache = mockCacheManager
+    ;(whoisService as unknown as { cache: CacheManager<WhoisCacheEntry> }).cache = mockCacheManager
   })
 
   describe('analyzeDomain', () => {
     it('should successfully analyze domain with string input', async () => {
-      mockWhois.lookup.mockImplementation((domain: string, options: any, callback: Function) => {
+      mockWhois.lookup.mockImplementation((domain: string, options: unknown, callback: (err: Error | null, data?: string) => void) => {
         callback(null, sampleWhoisResponse)
       })
       mockCacheManager.get.mockResolvedValue(null)
@@ -95,7 +96,7 @@ Registrant Country: US
     })
 
     it('should successfully analyze domain with ParsedURL input', async () => {
-      mockWhois.lookup.mockImplementation((domain: string, options: any, callback: Function) => {
+      mockWhois.lookup.mockImplementation((domain: string, options: unknown, callback: (err: Error | null, data?: string) => void) => {
         callback(null, sampleWhoisResponse)
       })
       mockCacheManager.get.mockResolvedValue(null)
@@ -141,8 +142,8 @@ Registrant Country: US
     })
 
     it('should handle WHOIS lookup timeout', async () => {
-      mockWhois.lookup.mockImplementation((domain: string, options: any, callback: Function) => {
-        const error = new Error('Timeout') as any
+      mockWhois.lookup.mockImplementation((domain: string, options: unknown, callback: (err: Error | null, data?: string) => void) => {
+        const error = new Error('Timeout') as Error & { code: string }
         error.code = 'ETIMEDOUT'
         callback(error)
       })
@@ -156,8 +157,8 @@ Registrant Country: US
     })
 
     it('should handle domain not found', async () => {
-      mockWhois.lookup.mockImplementation((domain: string, options: any, callback: Function) => {
-        const error = new Error('Domain not found') as any
+      mockWhois.lookup.mockImplementation((domain: string, options: unknown, callback: (err: Error | null, data?: string) => void) => {
+        const error = new Error('Domain not found') as Error & { code: string }
         error.code = 'ENOTFOUND'
         callback(error)
       })
@@ -171,8 +172,8 @@ Registrant Country: US
     })
 
     it('should handle network connection errors', async () => {
-      mockWhois.lookup.mockImplementation((domain: string, options: any, callback: Function) => {
-        const error = new Error('Connection refused') as any
+      mockWhois.lookup.mockImplementation((domain: string, options: unknown, callback: (err: Error | null, data?: string) => void) => {
+        const error = new Error('Connection refused') as Error & { code: string }
         error.code = 'ECONNREFUSED'
         callback(error)
       })
@@ -186,7 +187,7 @@ Registrant Country: US
     })
 
     it('should handle rate limiting', async () => {
-      mockWhois.lookup.mockImplementation((domain: string, options: any, callback: Function) => {
+      mockWhois.lookup.mockImplementation((domain: string, options: unknown, callback: (err: Error | null, data?: string) => void) => {
         const error = new Error('Rate limit exceeded')
         callback(error)
       })
@@ -201,10 +202,10 @@ Registrant Country: US
 
     it('should retry on retryable errors', async () => {
       let attempt = 0
-      mockWhois.lookup.mockImplementation((domain: string, options: any, callback: Function) => {
+      mockWhois.lookup.mockImplementation((domain: string, options: unknown, callback: (err: Error | null, data?: string) => void) => {
         attempt++
         if (attempt < 2) {
-          const error = new Error('Timeout') as any
+          const error = new Error('Timeout') as Error & { code: string }
           error.code = 'ETIMEDOUT'
           callback(error)
         } else {
@@ -220,8 +221,8 @@ Registrant Country: US
     })
 
     it('should fail after max retries', async () => {
-      mockWhois.lookup.mockImplementation((domain: string, options: any, callback: Function) => {
-        const error = new Error('Timeout') as any
+      mockWhois.lookup.mockImplementation((domain: string, options: unknown, callback: (err: Error | null, data?: string) => void) => {
+        const error = new Error('Timeout') as Error & { code: string }
         error.code = 'ETIMEDOUT'
         callback(error)
       })
@@ -242,7 +243,7 @@ Registrant Country: US
     })
 
     it('should extract domain from URL string', async () => {
-      mockWhois.lookup.mockImplementation((domain: string, options: any, callback: Function) => {
+      mockWhois.lookup.mockImplementation((domain: string, options: unknown, callback: (err: Error | null, data?: string) => void) => {
         expect(domain).toBe('example.com')
         callback(null, sampleWhoisResponse)
       })
@@ -255,7 +256,7 @@ Registrant Country: US
     })
 
     it('should handle URL with port number', async () => {
-      mockWhois.lookup.mockImplementation((domain: string, options: any, callback: Function) => {
+      mockWhois.lookup.mockImplementation((domain: string, options: unknown, callback: (err: Error | null, data?: string) => void) => {
         expect(domain).toBe('example.com')
         callback(null, sampleWhoisResponse)
       })
@@ -269,7 +270,7 @@ Registrant Country: US
 
     it('should work with cache disabled', async () => {
       const noCacheService = new WhoisService({ cacheEnabled: false })
-      mockWhois.lookup.mockImplementation((domain: string, options: any, callback: Function) => {
+      mockWhois.lookup.mockImplementation((domain: string, options: unknown, callback: (err: Error | null, data?: string) => void) => {
         callback(null, sampleWhoisResponse)
       })
 
@@ -280,7 +281,7 @@ Registrant Country: US
     })
 
     it('should handle custom lookup options', async () => {
-      mockWhois.lookup.mockImplementation((domain: string, options: any, callback: Function) => {
+      mockWhois.lookup.mockImplementation((domain: string, options: unknown, callback: (err: Error | null, data?: string) => void) => {
         expect(options.timeout).toBe(10000)
         expect(options.follow).toBe(3)
         expect(options.server).toBe('custom.whois.server')
@@ -330,7 +331,7 @@ Registrant Country: US
     it('should handle cache errors gracefully during lookup', async () => {
       mockCacheManager.get.mockRejectedValue(new Error('Cache error'))
       mockCacheManager.set.mockRejectedValue(new Error('Cache error'))
-      mockWhois.lookup.mockImplementation((domain: string, options: any, callback: Function) => {
+      mockWhois.lookup.mockImplementation((domain: string, options: unknown, callback: (err: Error | null, data?: string) => void) => {
         callback(null, sampleWhoisResponse)
       })
 
@@ -356,7 +357,7 @@ Registrant Country: US
 
     testCases.forEach(({ input, expected }) => {
       it(`should extract domain "${expected}" from input "${input}"`, async () => {
-        const extractDomain = (whoisService as any).extractDomain.bind(whoisService)
+        const extractDomain = (whoisService as unknown as { extractDomain: (input: string) => string | null }).extractDomain.bind(whoisService)
         const result = extractDomain(input)
         expect(result).toBe(expected)
       })
@@ -394,7 +395,7 @@ Registrant Country: US
 
     errorTestCases.forEach(({ error, expectedType, expectedRetryable }) => {
       it(`should categorize error with code/message as ${expectedType}`, () => {
-        const categorizeError = (whoisService as any).categorizeError.bind(whoisService)
+        const categorizeError = (whoisService as unknown as { categorizeError: (domain: string, error: unknown) => { type: string; retryable: boolean; domain: string; timestamp: string } }).categorizeError.bind(whoisService)
         const result = categorizeError('test.com', error)
         
         expect(result.type).toBe(expectedType)

@@ -11,7 +11,7 @@ class MockCache<T> implements CacheInterface<T> {
     return this.store.get(key) || null
   }
 
-  async set(key: string, value: T, ttl?: number): Promise<void> {
+  async set(key: string, value: T, _ttl?: number): Promise<void> {
     this.stats.sets++
     this.store.set(key, value)
   }
@@ -293,7 +293,7 @@ describe('CacheManager', () => {
         clear: jest.fn(),
         size: jest.fn(),
         keys: jest.fn(),
-      } as any
+      } as jest.Mocked<CacheInterface<TestData>>
 
       const errorCacheManager = new CacheManager<TestData>(
         { prefix: 'test', ttl: 1000 },

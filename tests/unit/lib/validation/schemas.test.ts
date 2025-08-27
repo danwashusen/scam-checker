@@ -254,8 +254,8 @@ describe('Validation Schemas', () => {
 
       test('returns fallback for errors without messages', () => {
         const mockError = {
-          errors: [{ message: '', path: [], code: 'custom' as any }],
-        } as any
+          errors: [{ message: '', path: [], code: 'custom' as string }],
+        } as { errors: Array<{ message: string; path: unknown[]; code: string }> }
         const formatted = formatValidationError(mockError)
         expect(formatted).toBe('Invalid input provided')
       })

@@ -5,7 +5,7 @@ import { POST, GET } from '../../../src/app/api/analyze/route'
 jest.mock('next/server', () => ({
   NextRequest: jest.fn(),
   NextResponse: {
-    json: jest.fn((data: any, options?: { status?: number }) => ({
+    json: jest.fn((data: unknown, options?: { status?: number }) => ({
       json: async () => data,
       status: options?.status || 200
     }))
@@ -19,20 +19,21 @@ jest.mock('../../../src/lib/analysis/whois-service', () => ({
   }
 }))
 
-const { defaultWhoisService } = require('../../../src/lib/analysis/whois-service')
+import whoisServiceModule from '../../../src/lib/analysis/whois-service'
+const { defaultWhoisService } = whoisServiceModule as jest.Mocked<typeof whoisServiceModule>
 
 // Helper function to create a mock NextRequest
-function createMockRequest(body: any): NextRequest {
+function createMockRequest(body: unknown): NextRequest {
   return {
     json: async () => body,
     method: 'POST',
     url: 'http://localhost/api/analyze',
     headers: new Headers(),
-    cookies: {} as any,
+    cookies: {} as NextRequest['cookies'],
     nextUrl: new URL('http://localhost/api/analyze'),
     page: {},
     ua: {},
-  } as NextRequest
+  } as unknown as NextRequest
 }
 
 describe('/api/analyze Integration Tests with WHOIS', () => {
@@ -93,8 +94,8 @@ describe('/api/analyze Integration Tests with WHOIS', () => {
       expect(data.data.domainAge.fromCache).toBe(false)
       
       // Should include WHOIS risk factors in the overall analysis
-      expect(data.data.factors.some((f: any) => f.type === 'age')).toBe(true)
-      expect(data.data.factors.some((f: any) => f.type === 'registrar')).toBe(true)
+      expect(data.data.factors.some((f: { type: string }) => f.type === 'age')).toBe(true)
+      expect(data.data.factors.some((f: { type: string }) => f.type === 'registrar')).toBe(true)
     })
 
     it('should handle WHOIS lookup failure gracefully', async () => {
@@ -127,7 +128,7 @@ describe('/api/analyze Integration Tests with WHOIS', () => {
       expect(data.data.domainAge.error).toBe('WHOIS query timed out')
       
       // Should include fallback risk factor
-      expect(data.data.factors.some((f: any) => f.type === 'domain-age-unknown')).toBe(true)
+      expect(data.data.factors.some((f: { type: string }) => f.type === 'domain-age-unknown')).toBe(true)
     })
 
     it('should handle WHOIS service exceptions', async () => {
@@ -149,7 +150,7 @@ describe('/api/analyze Integration Tests with WHOIS', () => {
       expect(data.data.domainAge.error).toBe('Unexpected WHOIS service error')
       
       // Should include error-based risk factor
-      expect(data.data.factors.some((f: any) => f.type === 'domain-age-error')).toBe(true)
+      expect(data.data.factors.some((f: { type: string }) => f.type === 'domain-age-error')).toBe(true)
     })
 
     it('should not perform WHOIS lookup for IP addresses', async () => {
@@ -171,7 +172,7 @@ describe('/api/analyze Integration Tests with WHOIS', () => {
       expect(defaultWhoisService.analyzeDomain).not.toHaveBeenCalled()
       
       // Should still have IP-based risk factor
-      expect(data.data.factors.some((f: any) => f.type === 'domain')).toBe(true)
+      expect(data.data.factors.some((f: { type: string }) => f.type === 'domain')).toBe(true)
     })
 
     it('should include WHOIS data from cache', async () => {
@@ -222,7 +223,7 @@ describe('/api/analyze Integration Tests with WHOIS', () => {
       expect(data.data.domainAge.analysis.privacyProtected).toBe(true)
       
       // Should include privacy protection risk factor
-      expect(data.data.factors.some((f: any) => f.type === 'privacy')).toBe(true)
+      expect(data.data.factors.some((f: { type: string }) => f.type === 'privacy')).toBe(true)
     })
 
     it('should analyze very new domain with high risk score', async () => {
@@ -427,11 +428,11 @@ describe('/api/analyze Integration Tests with WHOIS', () => {
         method: 'POST',
         url: 'http://localhost/api/analyze',
         headers: new Headers(),
-        cookies: {} as any,
+        cookies: {} as NextRequest['cookies'],
         nextUrl: new URL('http://localhost/api/analyze'),
         page: {},
         ua: {},
-      } as NextRequest
+      } as unknown as NextRequest
 
       const response = await POST(request)
       const data = await response.json()

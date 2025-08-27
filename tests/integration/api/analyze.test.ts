@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { POST, GET } from '../../../src/app/api/analyze/route'
 
 // Mock NextResponse for testing environment
@@ -7,7 +7,7 @@ jest.mock('next/server', () => {
   return {
     ...actual,
     NextResponse: {
-      json: (data: any, init?: ResponseInit) => ({
+      json: (data: unknown, init?: ResponseInit) => ({
         json: async () => data,
         status: init?.status || 200,
         headers: new Headers(),
@@ -60,7 +60,8 @@ jest.mock('../../../src/lib/logger', () => ({
   }
 }))
 
-const { logger: mockLogger } = require('../../../src/lib/logger')
+import loggerModule from '../../../src/lib/logger'
+const { logger: mockLogger } = loggerModule as jest.Mocked<typeof loggerModule>
 
 // Mock console methods to avoid test output pollution
 const mockConsole = {
@@ -106,7 +107,7 @@ describe('/api/analyze', () => {
   })
 
   describe('POST requests', () => {
-    const createRequest = (body: any) => {
+    const createRequest = (body: unknown) => {
       return new NextRequest('http://localhost:3000/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

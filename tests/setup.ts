@@ -38,12 +38,13 @@ Object.defineProperty(process.env, 'NODE_ENV', { value: 'test' })
 Object.defineProperty(process.env, 'NEXT_PUBLIC_APP_URL', { value: 'http://localhost:3000' })
 
 // Global test utilities
-global.fetch = require('jest-fetch-mock')
+import fetchMock from 'jest-fetch-mock'
+global.fetch = fetchMock
 
 // Suppress console errors during tests unless explicitly needed
 const originalError = console.error
 beforeAll(() => {
-  console.error = (...args: any[]) => {
+  console.error = (...args: unknown[]) => {
     if (
       typeof args[0] === 'string' &&
       args[0].includes('Warning: ReactDOM.render is deprecated')

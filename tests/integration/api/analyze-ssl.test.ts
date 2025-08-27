@@ -3,9 +3,7 @@
  * These tests verify the end-to-end SSL certificate analysis functionality
  */
 
-import request from 'supertest'
-import { createServer } from 'http'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { POST } from '../../../src/app/api/analyze/route'
 
 // Mock NextResponse for testing environment
@@ -14,7 +12,7 @@ jest.mock('next/server', () => {
   return {
     ...actual,
     NextResponse: {
-      json: (data: any, init?: ResponseInit) => ({
+      json: (data: unknown, init?: ResponseInit) => ({
         json: async () => data,
         status: init?.status || 200,
         headers: new Headers(),
@@ -27,11 +25,13 @@ jest.mock('next/server', () => {
 // Mock the SSL service for integration tests
 jest.mock('../../../src/lib/analysis/ssl-service')
 
-const mockSSLService = require('../../../src/lib/analysis/ssl-service')
+import mockSSLServiceModule from '../../../src/lib/analysis/ssl-service'
+const mockSSLService = mockSSLServiceModule as jest.Mocked<typeof mockSSLServiceModule>
 
 // Mock the WHOIS service to isolate SSL testing
 jest.mock('../../../src/lib/analysis/whois-service')
-const mockWhoisService = require('../../../src/lib/analysis/whois-service')
+import mockWhoisServiceModule from '../../../src/lib/analysis/whois-service'
+const mockWhoisService = mockWhoisServiceModule as jest.Mocked<typeof mockWhoisServiceModule>
 
 describe('SSL Certificate Analysis Integration', () => {
   beforeEach(() => {
@@ -241,7 +241,7 @@ describe('SSL Certificate Analysis Integration', () => {
       expect(data.data.riskLevel).toBe('high') // Should be high due to SSL risks
       
       // Check that SSL risk factors are included in overall risk assessment
-      const sslRiskFactors = data.data.factors.filter((f: any) => f.type.startsWith('ssl-'))
+      const sslRiskFactors = data.data.factors.filter((f: { type: string }) => f.type.startsWith('ssl-'))
       expect(sslRiskFactors.length).toBeGreaterThan(0)
       
       // Verify explanation mentions SSL issues
@@ -379,7 +379,7 @@ describe('SSL Certificate Analysis Integration', () => {
       expect(data.data.sslCertificate.analysis).toBeNull()
       
       // Should still have a fallback risk factor for SSL unavailability
-      const sslRiskFactors = data.data.factors.filter((f: any) => f.type === 'ssl-unavailable')
+      const sslRiskFactors = data.data.factors.filter((f: { type: string }) => f.type === 'ssl-unavailable')
       expect(sslRiskFactors.length).toBe(1)
     })
 
@@ -534,26 +534,7 @@ describe('SSL Certificate Analysis Integration', () => {
 
   describe('IP Address Handling', () => {
     it('should not perform SSL analysis for IP addresses', async () => {
-      // Mock URL parser to return IP address result
-      const mockParseResult = {
-        original: 'https://8.8.8.8',
-        protocol: 'https:',
-        hostname: '8.8.8.8',
-        domain: '8.8.8.8',
-        subdomain: '',
-        pathname: '/',
-        search: '',
-        searchParams: {},
-        hash: '',
-        isIP: true, // This prevents SSL analysis
-        isIPv4: true,
-        isIPv6: false,
-        components: {
-          domainParts: [],
-          pathParts: [],
-          queryParams: []
-        }
-      }
+      // Mock URL parser to return IP address result - this prevents SSL analysis
 
       // Mock WHOIS to handle IP
       mockWhoisService.defaultWhoisService.analyzeDomain.mockResolvedValue({
@@ -618,7 +599,7 @@ describe('SSL Certificate Analysis Integration', () => {
       expect(data.data.sslCertificate.error).toBe('Unexpected SSL service error')
       
       // Should still have a fallback risk factor for SSL error
-      const sslRiskFactors = data.data.factors.filter((f: any) => f.type === 'ssl-error')
+      const sslRiskFactors = data.data.factors.filter((f: { type: string }) => f.type === 'ssl-error')
       expect(sslRiskFactors.length).toBe(1)
     })
   })

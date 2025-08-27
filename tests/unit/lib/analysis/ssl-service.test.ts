@@ -5,10 +5,7 @@ import type {
   SSLCacheEntry, 
   SSLCertificateAnalysis, 
   SSLCertificateData,
-  SSLCertificateChain,
-  CertificateAuthorityInfo,
-  SSLSecurityAssessment,
-  SSLValidationResult
+  SSLCertificateChain
 } from '../../../../src/types/ssl'
 
 // Mock the tls and crypto modules
@@ -16,8 +13,10 @@ jest.mock('tls')
 jest.mock('crypto')
 jest.mock('net')
 
-const mockTls = require('tls')
-const mockCrypto = require('crypto')
+import * as tlsModule from 'tls'
+import * as cryptoModule from 'crypto'
+const mockTls = tlsModule as jest.Mocked<typeof tlsModule>
+const _mockCrypto = cryptoModule as jest.Mocked<typeof cryptoModule>
 
 // Mock the SSL service's getSSLCertificate method to avoid TLS complexities
 const mockGetSSLCertificate = jest.fn()
@@ -89,7 +88,7 @@ describe('SSLService', () => {
       getStats: jest.fn(),
       cleanup: jest.fn(),
       getOrSet: jest.fn()
-    } as any
+    } as jest.Mocked<CacheManager<SSLCacheEntry>>
 
     // Create service with mock cache
     sslService = new SSLService({
@@ -103,10 +102,10 @@ describe('SSLService', () => {
     })
 
     // Replace the cache manager with our mock
-    ;(sslService as any).cache = mockCacheManager
+    ;(sslService as unknown as { cache: CacheManager<SSLCacheEntry> }).cache = mockCacheManager
 
     // Mock the internal getSSLCertificate method
-    ;(sslService as any).getSSLCertificate = mockGetSSLCertificate
+    ;(sslService as unknown as { getSSLCertificate: typeof mockGetSSLCertificate }).getSSLCertificate = mockGetSSLCertificate
 
     // Setup default successful SSL mock behavior
     setupDefaultSSLMocks()
@@ -233,7 +232,7 @@ describe('SSLService', () => {
     it('should handle SSL connection refused', async () => {
       mockCacheManager.get.mockResolvedValue(null)
       
-      const connectionError = new Error('Connection refused') as any
+      const connectionError = new Error('Connection refused') as Error & { code: string }
       connectionError.code = 'ECONNREFUSED'
       mockGetSSLCertificate.mockRejectedValue(connectionError)
 
@@ -247,7 +246,7 @@ describe('SSLService', () => {
     it('should handle host not found', async () => {
       mockCacheManager.get.mockResolvedValue(null)
       
-      const networkError = new Error('Host not found') as any
+      const networkError = new Error('Host not found') as Error & { code: string }
       networkError.code = 'ENOTFOUND'
       mockGetSSLCertificate.mockRejectedValue(networkError)
 
@@ -261,7 +260,7 @@ describe('SSLService', () => {
     it('should handle certificate validation errors', async () => {
       mockCacheManager.get.mockResolvedValue(null)
       
-      const certError = new Error('Certificate validation failed') as any
+      const certError = new Error('Certificate validation failed') as Error & { code: string }
       certError.code = 'CERT_UNTRUSTED'
       mockGetSSLCertificate.mockRejectedValue(certError)
 
@@ -279,7 +278,7 @@ describe('SSLService', () => {
       mockGetSSLCertificate.mockImplementation(() => {
         attempt++
         if (attempt === 1) {
-          const error = new Error('Timeout') as any
+          const error = new Error('Timeout') as Error & { code: string }
           error.code = 'ETIMEDOUT'
           return Promise.reject(error)
         } else {
@@ -308,7 +307,7 @@ describe('SSLService', () => {
     it('should fail after max retries', async () => {
       mockCacheManager.get.mockResolvedValue(null)
       
-      const timeoutError = new Error('Timeout') as any
+      const timeoutError = new Error('Timeout') as Error & { code: string }
       timeoutError.code = 'ETIMEDOUT'
       mockGetSSLCertificate.mockRejectedValue(timeoutError)
 
@@ -437,7 +436,7 @@ describe('SSLService', () => {
 
     it('should work with cache disabled', async () => {
       const noCacheService = new SSLService({ cacheEnabled: false })
-      ;(noCacheService as any).getSSLCertificate = mockGetSSLCertificate
+      ;(noCacheService as unknown as { getSSLCertificate: typeof mockGetSSLCertificate }).getSSLCertificate = mockGetSSLCertificate
       
       const result = await noCacheService.analyzeCertificate('example.com')
 
@@ -448,7 +447,7 @@ describe('SSLService', () => {
     it('should handle custom connection options', async () => {
       mockCacheManager.get.mockResolvedValue(null)
 
-      const result = await sslService.analyzeCertificate('example.com', {
+      await sslService.analyzeCertificate('example.com', {
         timeout: 10000,
         port: 8443,
         servername: 'custom.example.com',
@@ -657,7 +656,7 @@ describe('SSLService', () => {
 
     testCases.forEach(({ input, expected }) => {
       it(`should extract domain "${expected}" from input "${input}"`, () => {
-        const extractDomain = (sslService as any).extractDomain.bind(sslService)
+        const extractDomain = (sslService as unknown as { extractDomain: (input: string) => string | null }).extractDomain.bind(sslService)
         const result = extractDomain(input)
         expect(result).toBe(expected)
       })
@@ -695,7 +694,7 @@ describe('SSLService', () => {
 
     errorTestCases.forEach(({ error, expectedType, expectedRetryable }) => {
       it(`should categorize SSL error with code/message as ${expectedType}`, () => {
-        const categorizeError = (sslService as any).categorizeError.bind(sslService)
+        const categorizeError = (sslService as unknown as { categorizeError: (domain: string, port: number, error: unknown) => { type: string; retryable: boolean; domain: string; port: number; timestamp: string } }).categorizeError.bind(sslService)
         const result = categorizeError('test.com', 443, error)
         
         expect(result.type).toBe(expectedType)
