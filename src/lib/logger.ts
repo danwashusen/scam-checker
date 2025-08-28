@@ -11,7 +11,7 @@ export interface LogContext {
   [key: string]: unknown
 }
 
-class Logger {
+export class Logger {
   private logger: pino.Logger
 
   constructor() {
@@ -104,8 +104,6 @@ class Logger {
   }
 }
 
-// Export singleton instance
+// Temporary backward compatibility for tests - DEPRECATED, use ServiceFactory instead
+/** @deprecated Use ServiceFactory.createLogger() instead */
 export const logger = new Logger()
-
-// Export for testing
-export { Logger }

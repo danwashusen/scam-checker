@@ -78,7 +78,8 @@ graph TB
 - **Jamstack Architecture:** Static generation with serverless APIs - _Rationale:_ Optimal performance for content delivery with dynamic API analysis
 - **API Gateway Pattern:** Centralized external API orchestration - _Rationale:_ Manages rate limits, caching, and error handling for multiple external services
 - **Component-Based UI:** Reusable React components with shadcn/ui - _Rationale:_ Consistent dual-layer interface (simple + technical views)
-- **Repository Pattern:** Abstract external API access - _Rationale:_ Enables testing and easy service provider switching
+- **Factory Pattern:** Service instantiation with configuration injection - _Rationale:_ Eliminates singletons, improves testability, enables environment-specific configs
+- **Builder Pattern:** Fluent API for complex service configuration - _Rationale:_ Simplified service setup with type safety and environment defaults
 - **Cache-Aside Pattern:** In-memory result caching - _Rationale:_ Reduces external API costs and improves response times
 
 ## Tech Stack
@@ -472,8 +473,9 @@ class ApiClient {
   private baseUrl: string;
   private apiKey?: string;
   
-  constructor() {
-    this.baseUrl = process.env.NEXT_PUBLIC_API_URL || '/api';
+  constructor(config?: { baseUrl?: string; apiKey?: string }) {
+    this.baseUrl = config?.baseUrl || process.env.NEXT_PUBLIC_API_URL || '/api';
+    this.apiKey = config?.apiKey;
   }
   
   async analyze(url: string, options?: AnalysisOptions): Promise<AnalysisResult> {
@@ -484,7 +486,9 @@ class ApiClient {
   }
 }
 
-export const apiClient = new ApiClient();
+// Factory function instead of singleton
+export const createApiClient = (config?: Parameters<typeof ApiClient>[0]) => 
+  new ApiClient(config);
 ```
 
 ## Backend Architecture
@@ -508,7 +512,9 @@ lambda/
 │   ├── safeBrowsingService.ts # Google Safe Browsing API
 │   ├── aiAnalysisService.ts   # OpenAI/Claude integration
 │   ├── scoringService.ts      # Risk scoring logic
-│   └── cacheService.ts        # Cache abstraction
+│   ├── cacheService.ts        # Cache abstraction
+│   ├── service-factory.ts     # Service factory pattern
+│   └── service-builder.ts     # Service configuration builder
 └── utils/
     ├── logger.ts               # CloudWatch logging
     └── errors.ts               # Error handling
@@ -549,7 +555,10 @@ scam-checker/
 │   ├── modules/
 │   ├── environments/
 │   └── main.tf
-├── tests/                         # Test files
+├── tests/                         # Test files organized by type
+│   ├── unit/                      # Unit tests
+│   ├── integration/               # Integration tests
+│   └── e2e/                       # End-to-end tests
 ├── docs/                          # Documentation
 ├── public/                       # Static assets
 ├── next.config.js                # Next.js configuration
@@ -647,9 +656,37 @@ Frontend Unit (30%)  Backend Unit (30%)
 
 ### Test Organization
 
-- **Unit tests:** Colocated with source files using `.test.ts` suffix
-- **Integration tests:** Separate tests/ directory
-- **E2E tests:** Playwright tests in tests/e2e/
+The testing structure follows a clear directory hierarchy with explicit separation of concerns:
+
+#### Directory Structure
+```
+tests/
+├── unit/                       # Unit tests
+│   ├── components/            # Frontend component tests
+│   ├── services/              # Backend service tests
+│   ├── utils/                 # Utility function tests
+│   └── lib/                   # Library tests
+├── integration/               # Integration tests
+│   ├── api/                   # API endpoint tests
+│   ├── services/              # Service integration tests
+│   └── workflows/             # End-to-end workflow tests
+└── e2e/                       # End-to-end browser tests
+    ├── user-flows/            # Complete user journey tests
+    ├── api-scenarios/         # API scenario tests
+    └── cross-browser/         # Browser compatibility tests
+```
+
+#### Test Types and Locations
+
+- **Unit Tests:** `tests/unit/` - Test individual functions, components, and classes in isolation
+- **Integration Tests:** `tests/integration/` - Test multiple components working together, API endpoints, and service interactions
+- **E2E Tests:** `tests/e2e/` - Test complete user workflows using Playwright across real browsers
+
+#### File Naming Conventions
+
+- **Unit tests:** `*.test.ts` or `*.spec.ts`
+- **Integration tests:** `*.integration.test.ts`
+- **E2E tests:** `*.e2e.test.ts`
 
 Coverage target: 80% minimum across all test types
 

@@ -81,14 +81,21 @@ jest.mock('../../../../src/config/ai', () => ({
   }),
 }))
 
-jest.mock('../../../../src/lib/logger', () => ({
-  logger: {
+jest.mock('../../../../src/lib/logger', () => {
+  const mockInstance = {
     info: jest.fn(),
     warn: jest.fn(),
     error: jest.fn(),
     debug: jest.fn(),
-  },
-}))
+    timer: jest.fn(() => ({
+      end: jest.fn()
+    }))
+  }
+  return {
+    Logger: jest.fn().mockImplementation(() => mockInstance),
+    logger: mockInstance
+  }
+})
 
 // Import after mocking
 import { AIURLAnalyzer } from '../../../../src/lib/analysis/ai-url-analyzer'

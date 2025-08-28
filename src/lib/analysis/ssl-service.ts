@@ -2,7 +2,10 @@ import * as tls from 'tls'
 import type { DetailedPeerCertificate } from 'tls'
 import { CacheManager } from '../cache/cache-manager'
 import { getRootDomain } from '../validation/url-parser'
-import { logger } from '../logger'
+import { Logger } from '../logger'
+
+// Create logger instance - this will be replaced with dependency injection later
+const logger = new Logger()
 import type { ParsedURL } from '../validation/url-parser'
 import type {
   SSLCertificateAnalysis,
@@ -29,7 +32,7 @@ import type {
  */
 export class SSLService {
   private cache: CacheManager<SSLCacheEntry>
-  private config: SSLServiceConfig
+  public config: SSLServiceConfig
 
   constructor(config?: Partial<SSLServiceConfig>) {
     this.config = {
@@ -916,7 +919,7 @@ export class SSLService {
   }
 }
 
-/**
- * Default SSL service instance
- */
+// Temporary backward compatibility for tests - DEPRECATED, use ServiceFactory instead
+/** @deprecated Use ServiceFactory.createSSLService() instead */
 export const defaultSSLService = new SSLService()
+

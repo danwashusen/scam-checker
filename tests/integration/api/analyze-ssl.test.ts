@@ -23,18 +23,81 @@ jest.mock('next/server', () => {
 })
 
 // Mock the SSL service for integration tests
-jest.mock('../../../src/lib/analysis/ssl-service', () => ({
-  defaultSSLService: {
-    analyzeCertificate: jest.fn()
+jest.mock('../../../src/lib/analysis/ssl-service', () => {
+  const mockInstance = {
+    analyzeCertificate: jest.fn(),
+    getCacheStats: jest.fn(),
+    clearCache: jest.fn(),
+    isCached: jest.fn(),
+    config: {}
   }
-}))
+  return {
+    SSLService: jest.fn().mockImplementation(() => mockInstance),
+    defaultSSLService: mockInstance
+  }
+})
 
 // Mock the WHOIS service to isolate SSL testing
-jest.mock('../../../src/lib/analysis/whois-service', () => ({
-  defaultWhoisService: {
-    analyzeDomain: jest.fn()
+jest.mock('../../../src/lib/analysis/whois-service', () => {
+  const mockInstance = {
+    analyzeDomain: jest.fn(),
+    getCacheStats: jest.fn(),
+    clearCache: jest.fn(),
+    isCached: jest.fn(),
+    config: {}
   }
-}))
+  return {
+    WhoisService: jest.fn().mockImplementation(() => mockInstance),
+    defaultWhoisService: mockInstance
+  }
+})
+
+// Mock the reputation service to isolate SSL testing
+jest.mock('../../../src/lib/analysis/reputation-service', () => {
+  const mockInstance = {
+    analyzeURL: jest.fn(),
+    checkMultipleURLs: jest.fn(),
+    clearCache: jest.fn(),
+    getStats: jest.fn(),
+    config: {}
+  }
+  return {
+    ReputationService: jest.fn().mockImplementation(() => mockInstance),
+    defaultReputationService: mockInstance
+  }
+})
+
+// Mock the AI analyzer to isolate SSL testing
+jest.mock('../../../src/lib/analysis/ai-url-analyzer', () => {
+  const mockInstance = {
+    isAvailable: jest.fn(() => false),
+    analyzeURL: jest.fn(),
+    getConfig: jest.fn(),
+    getCacheStats: jest.fn(),
+    getUsageStats: jest.fn()
+  }
+  return {
+    AIURLAnalyzer: jest.fn().mockImplementation(() => mockInstance),
+    defaultAIURLAnalyzer: mockInstance
+  }
+})
+
+// Mock the logger
+jest.mock('../../../src/lib/logger', () => {
+  const mockInstance = {
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    debug: jest.fn(),
+    timer: jest.fn(() => ({
+      end: jest.fn()
+    }))
+  }
+  return {
+    Logger: jest.fn().mockImplementation(() => mockInstance),
+    defaultLogger: mockInstance
+  }
+})
 
 import * as mockSSLServiceModule from '../../../src/lib/analysis/ssl-service'
 import * as mockWhoisServiceModule from '../../../src/lib/analysis/whois-service'

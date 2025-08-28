@@ -14,7 +14,10 @@ import {
   AIErrorCode,
 } from '../../types/ai'
 import { estimateRequestCost } from '../../config/ai'
-import { logger } from '../logger'
+import { Logger } from '../logger'
+
+// Create logger instance - this will be replaced with dependency injection later
+const logger = new Logger()
 
 /**
  * AI Service class for handling different AI providers

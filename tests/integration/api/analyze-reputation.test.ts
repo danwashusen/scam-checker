@@ -4,15 +4,23 @@
  */
 
 // Mock the reputation service to avoid external API calls during testing
-jest.mock('../../../src/lib/analysis/reputation-service', () => ({
-  defaultReputationService: {
-    analyzeURL: jest.fn()
+jest.mock('../../../src/lib/analysis/reputation-service', () => {
+  const mockInstance = {
+    analyzeURL: jest.fn(),
+    checkMultipleURLs: jest.fn(),
+    clearCache: jest.fn(),
+    getStats: jest.fn(),
+    config: {}
   }
-}))
+  return {
+    ReputationService: jest.fn().mockImplementation(() => mockInstance),
+    defaultReputationService: mockInstance
+  }
+})
 
 // Mock the WHOIS and SSL services to isolate reputation testing
-jest.mock('../../../src/lib/analysis/whois-service', () => ({
-  defaultWhoisService: {
+jest.mock('../../../src/lib/analysis/whois-service', () => {
+  const mockInstance = {
     analyzeDomain: jest.fn().mockResolvedValue({
       success: true,
       data: {
@@ -25,12 +33,20 @@ jest.mock('../../../src/lib/analysis/whois-service', () => ({
         confidence: 0.8
       },
       fromCache: false
-    })
+    }),
+    getCacheStats: jest.fn(),
+    clearCache: jest.fn(),
+    isCached: jest.fn(),
+    config: {}
   }
-}))
+  return {
+    WhoisService: jest.fn().mockImplementation(() => mockInstance),
+    defaultWhoisService: mockInstance
+  }
+})
 
-jest.mock('../../../src/lib/analysis/ssl-service', () => ({
-  defaultSSLService: {
+jest.mock('../../../src/lib/analysis/ssl-service', () => {
+  const mockInstance = {
     analyzeCertificate: jest.fn().mockResolvedValue({
       success: true,
       data: {
@@ -44,9 +60,49 @@ jest.mock('../../../src/lib/analysis/ssl-service', () => ({
         confidence: 0.9
       },
       fromCache: false
-    })
+    }),
+    getCacheStats: jest.fn(),
+    clearCache: jest.fn(),
+    isCached: jest.fn(),
+    config: {}
   }
-}))
+  return {
+    SSLService: jest.fn().mockImplementation(() => mockInstance),
+    defaultSSLService: mockInstance
+  }
+})
+
+// Mock the AI analyzer to isolate reputation testing
+jest.mock('../../../src/lib/analysis/ai-url-analyzer', () => {
+  const mockInstance = {
+    isAvailable: jest.fn(() => false),
+    analyzeURL: jest.fn(),
+    getConfig: jest.fn(),
+    getCacheStats: jest.fn(),
+    getUsageStats: jest.fn()
+  }
+  return {
+    AIURLAnalyzer: jest.fn().mockImplementation(() => mockInstance),
+    defaultAIURLAnalyzer: mockInstance
+  }
+})
+
+// Mock the logger
+jest.mock('../../../src/lib/logger', () => {
+  const mockInstance = {
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    debug: jest.fn(),
+    timer: jest.fn(() => ({
+      end: jest.fn()
+    }))
+  }
+  return {
+    Logger: jest.fn().mockImplementation(() => mockInstance),
+    defaultLogger: mockInstance
+  }
+})
 
 import { defaultReputationService } from '../../../src/lib/analysis/reputation-service'
 import type { ReputationServiceResult } from '../../../src/types/reputation'

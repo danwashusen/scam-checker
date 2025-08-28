@@ -1,5 +1,8 @@
 import { CacheManager } from '../cache/cache-manager'
-import { logger } from '../logger'
+import { Logger } from '../logger'
+
+// Create logger instance - this will be replaced with dependency injection later
+const logger = new Logger()
 import type {
   ReputationAnalysis,
   ReputationServiceResult,
@@ -26,7 +29,7 @@ import {
  */
 export class ReputationService implements ReputationServiceInterface {
   private cache: CacheManager<ReputationAnalysis>
-  private config: SafeBrowsingConfig
+  public config: SafeBrowsingConfig
   private stats = {
     totalRequests: 0,
     apiCalls: 0,
@@ -343,5 +346,6 @@ export class ReputationService implements ReputationServiceInterface {
   }
 }
 
-// Default service instance
+// Temporary backward compatibility for tests - DEPRECATED, use ServiceFactory instead
+/** @deprecated Use ServiceFactory.createReputationService() instead */
 export const defaultReputationService = new ReputationService()

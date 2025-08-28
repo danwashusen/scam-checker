@@ -2,7 +2,10 @@
 
 import { useEffect } from 'react'
 import Link from 'next/link'
-import { logger } from '../lib/logger'
+import { Logger } from '../lib/logger'
+
+// Create logger instance for error handling
+const logger = new Logger()
 
 export default function Error({
   error,

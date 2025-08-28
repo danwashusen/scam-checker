@@ -12,13 +12,21 @@ import {
 
 // Mock dependencies
 jest.mock('../../../../src/lib/cache/cache-manager')
-jest.mock('../../../../src/lib/logger', () => ({
-  logger: {
+jest.mock('../../../../src/lib/logger', () => {
+  const mockInstance = {
     warn: jest.fn(),
     error: jest.fn(),
-    info: jest.fn()
+    info: jest.fn(),
+    debug: jest.fn(),
+    timer: jest.fn(() => ({
+      end: jest.fn()
+    }))
   }
-}))
+  return {
+    Logger: jest.fn().mockImplementation(() => mockInstance),
+    logger: mockInstance
+  }
+})
 
 // Mock fetch globally
 global.fetch = jest.fn()

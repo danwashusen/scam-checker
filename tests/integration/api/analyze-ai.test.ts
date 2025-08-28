@@ -2,10 +2,18 @@
  * Integration tests for AI analysis in the analyze API
  */
 
-import { POST, GET } from '../../../src/app/api/analyze/route'
-import { NextRequest } from 'next/server'
-import type { AIAnalysisResult } from '../../../src/types/ai'
-import { AIProvider, ScamCategory } from '../../../src/types/ai'
+// Mock all dependencies BEFORE importing anything
+jest.mock('../../../src/lib/logger', () => ({
+  Logger: jest.fn().mockImplementation(() => ({
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    debug: jest.fn(),
+    timer: jest.fn(() => ({
+      end: jest.fn(),
+    })),
+  })),
+}))
 
 // Mock NextResponse to work in test environment
 jest.mock('next/server', () => ({
@@ -30,33 +38,68 @@ jest.mock('next/server', () => ({
 }))
 
 // Mock AI dependencies
-jest.mock('../../../src/lib/analysis/ai-url-analyzer', () => ({
-  defaultAIURLAnalyzer: {
+jest.mock('../../../src/lib/analysis/ai-url-analyzer', () => {
+  const mockInstance = {
     isAvailable: jest.fn(),
     analyzeURL: jest.fn(),
     getConfig: jest.fn(),
     getCacheStats: jest.fn(),
     getUsageStats: jest.fn(),
-  },
-}))
+  }
+  return {
+    AIURLAnalyzer: jest.fn().mockImplementation(() => mockInstance),
+    defaultAIURLAnalyzer: mockInstance,
+  }
+})
 
 // Mock other analysis services (to isolate AI testing)
-jest.mock('../../../src/lib/analysis/whois-service')
-jest.mock('../../../src/lib/analysis/ssl-service')
-jest.mock('../../../src/lib/analysis/reputation-service')
+jest.mock('../../../src/lib/analysis/whois-service', () => {
+  const mockInstance = {
+    analyzeDomain: jest.fn().mockResolvedValue({ success: true, data: null, fromCache: false }),
+    getCacheStats: jest.fn(),
+    clearCache: jest.fn(),
+    isCached: jest.fn(),
+    config: {},
+  }
+  return {
+    WhoisService: jest.fn().mockImplementation(() => mockInstance),
+    defaultWhoisService: mockInstance,
+  }
+})
 
-// Mock logger
-jest.mock('../../../src/lib/logger', () => ({
-  logger: {
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    debug: jest.fn(),
-    timer: jest.fn(() => ({
-      end: jest.fn(),
-    })),
-  },
-}))
+jest.mock('../../../src/lib/analysis/ssl-service', () => {
+  const mockInstance = {
+    analyzeCertificate: jest.fn().mockResolvedValue({ success: true, data: null, fromCache: false }),
+    getCacheStats: jest.fn(),
+    clearCache: jest.fn(),
+    isCached: jest.fn(),
+    config: {},
+  }
+  return {
+    SSLService: jest.fn().mockImplementation(() => mockInstance),
+    defaultSSLService: mockInstance,
+  }
+})
+
+jest.mock('../../../src/lib/analysis/reputation-service', () => {
+  const mockInstance = {
+    analyzeURL: jest.fn().mockResolvedValue({ success: true, data: { isClean: true, threatMatches: [], riskFactors: [] }, fromCache: false }),
+    checkMultipleURLs: jest.fn(),
+    clearCache: jest.fn(),
+    getStats: jest.fn(),
+    config: {},
+  }
+  return {
+    ReputationService: jest.fn().mockImplementation(() => mockInstance),
+    defaultReputationService: mockInstance,
+  }
+})
+
+// Now import after mocks are set up
+import { POST, GET } from '../../../src/app/api/analyze/route'
+import { NextRequest } from 'next/server'
+import type { AIAnalysisResult } from '../../../src/types/ai'
+import { AIProvider, ScamCategory } from '../../../src/types/ai'
 
 interface MockAIAnalyzer {
   isAvailable: jest.Mock

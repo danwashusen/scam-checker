@@ -4,11 +4,8 @@ import { parseURL } from '../../../lib/validation/url-parser'
 import { sanitizeURL } from '../../../lib/validation/url-sanitizer'
 import { sanitizeForLogging } from '../../../lib/validation/url-sanitizer'
 import { validateAnalysisRequest, formatValidationError } from '../../../lib/validation/schemas'
-import { defaultWhoisService } from '../../../lib/analysis/whois-service'
-import { defaultSSLService } from '../../../lib/analysis/ssl-service'
-import { defaultReputationService } from '../../../lib/analysis/reputation-service'
-import { defaultAIURLAnalyzer } from '../../../lib/analysis/ai-url-analyzer'
-import { logger } from '../../../lib/logger'
+import { ServiceBuilder } from '../../../lib/services/service-builder'
+import type { AnalysisServices } from '../../../types/services'
 import type { URLAnalysisResult, URLValidationOptions, SanitizationOptions } from '../../../types/url'
 import type { DomainAgeAnalysis } from '../../../types/whois'
 import type { SSLCertificateAnalysis } from '../../../types/ssl'
@@ -68,7 +65,14 @@ interface AnalysisResult {
 
 export async function POST(request: NextRequest) {
   const requestStartTime = Date.now()
-  const timer = logger.timer('URL analysis request')
+  
+  // Create services using factory pattern with environment-specific configuration
+  const services: AnalysisServices = new ServiceBuilder()
+    .withEnvironment((process.env.NODE_ENV as 'development' | 'staging' | 'production') || 'development')
+    .withDefaults()
+    .build()
+
+  const timer = services.logger.timer('URL analysis request')
   
   try {
     const body = await request.json()
@@ -77,7 +81,7 @@ export async function POST(request: NextRequest) {
     const requestValidation = validateAnalysisRequest(body)
     if (!requestValidation.success) {
       const errorMessage = formatValidationError(requestValidation.error)
-      logger.warn('URL validation failed', {
+      services.logger.warn('URL validation failed', {
         message: errorMessage,
         input: sanitizeForLogging(body?.url || 'undefined'),
         errors: requestValidation.error.errors,
@@ -102,10 +106,10 @@ export async function POST(request: NextRequest) {
     const { url: inputUrl, options } = requestValidation.data
     
     // Perform comprehensive URL analysis
-    const urlAnalysis = await performURLAnalysis(inputUrl, options)
+    const urlAnalysis = await performURLAnalysis(inputUrl, options, services)
     
     if (!urlAnalysis.validation.isValid) {
-      logger.warn('URL validation failed', {
+      services.logger.warn('URL validation failed', {
         errorMessage: urlAnalysis.validation.error,
         input: sanitizeForLogging(inputUrl),
         errorType: urlAnalysis.validation.errorType,
@@ -129,7 +133,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate comprehensive analysis result including WHOIS and SSL data
-    const mockResult: AnalysisResult = await generateAnalysisWithAll(urlAnalysis)
+    const mockResult: AnalysisResult = await generateAnalysisWithAll(urlAnalysis, services)
     
     const finalProcessingTime = Date.now() - requestStartTime
     
@@ -140,7 +144,7 @@ export async function POST(request: NextRequest) {
     })
 
     // Log successful analysis for monitoring
-    logger.info('URL analysis completed successfully', {
+    services.logger.info('URL analysis completed successfully', {
       url: sanitizeForLogging(urlAnalysis.final),
       processingTime: finalProcessingTime,
       riskLevel: mockResult.riskLevel,
@@ -161,7 +165,7 @@ export async function POST(request: NextRequest) {
       timestamp: new Date().toISOString(),
     })
   } catch (error) {
-    logger.error('Analysis API error', {
+    services.logger.error('Analysis API error', {
       error: error instanceof Error ? error : new Error(String(error)),
       timestamp: new Date().toISOString(),
     })
@@ -178,7 +182,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function performURLAnalysis(inputUrl: string, options?: { validation?: URLValidationOptions; sanitization?: SanitizationOptions; skipSanitization?: boolean }): Promise<URLAnalysisResult> {
+async function performURLAnalysis(inputUrl: string, options?: { validation?: URLValidationOptions; sanitization?: SanitizationOptions; skipSanitization?: boolean }, services?: AnalysisServices): Promise<URLAnalysisResult> {
   const startTime = Date.now()
   
   // Step 1: Validate URL
@@ -201,7 +205,7 @@ async function performURLAnalysis(inputUrl: string, options?: { validation?: URL
         finalUrl = validationResult.normalizedUrl || inputUrl
       }
     } catch (parseError: unknown) {
-      logger.warn('URL parsing failed', {
+      services?.logger.warn('URL parsing failed', {
         error: parseError instanceof Error ? parseError : new Error(String(parseError)),
         input: sanitizeForLogging(inputUrl),
       })
@@ -226,7 +230,7 @@ async function performURLAnalysis(inputUrl: string, options?: { validation?: URL
   }
 }
 
-async function generateAnalysisWithAll(analysis: URLAnalysisResult): Promise<AnalysisResult> {
+async function generateAnalysisWithAll(analysis: URLAnalysisResult, services: AnalysisServices): Promise<AnalysisResult> {
   const { parsed, sanitization } = analysis
   
   // Generate risk factors based on URL analysis
@@ -240,7 +244,7 @@ async function generateAnalysisWithAll(analysis: URLAnalysisResult): Promise<Ana
   // Perform WHOIS analysis if we have a valid domain (not IP)
   if (parsed && !parsed.isIP) {
     try {
-      const whoisResult = await defaultWhoisService.analyzeDomain(parsed)
+      const whoisResult = await services.whois.analyzeDomain(parsed)
       
       if (whoisResult.success && whoisResult.data) {
         const whoisAnalysis = whoisResult.data
@@ -254,7 +258,7 @@ async function generateAnalysisWithAll(analysis: URLAnalysisResult): Promise<Ana
         }
 
         // Add WHOIS-based risk factors
-        whoisAnalysis.riskFactors.forEach(factor => {
+        whoisAnalysis.riskFactors.forEach((factor: any) => {
           factors.push({
             type: factor.type,
             score: factor.score,
@@ -263,7 +267,7 @@ async function generateAnalysisWithAll(analysis: URLAnalysisResult): Promise<Ana
           totalRiskScore += factor.score
         })
 
-        logger.info('WHOIS analysis completed', {
+        services.logger.info('WHOIS analysis completed', {
           domain: parsed.domain,
           ageInDays: whoisAnalysis.ageInDays,
           registrar: whoisAnalysis.registrar,
@@ -299,7 +303,7 @@ async function generateAnalysisWithAll(analysis: URLAnalysisResult): Promise<Ana
         error: error instanceof Error ? error.message : 'Unexpected WHOIS lookup error'
       }
       
-      logger.warn('WHOIS lookup error', {
+      services.logger.warn('WHOIS lookup error', {
         domain: parsed.domain,
         error: error as Error
       })
@@ -316,7 +320,7 @@ async function generateAnalysisWithAll(analysis: URLAnalysisResult): Promise<Ana
   // Perform SSL certificate analysis if using HTTPS
   if (parsed && !parsed.isIP && analysis.final.startsWith('https:')) {
     try {
-      const sslResult = await defaultSSLService.analyzeCertificate(parsed)
+      const sslResult = await services.ssl.analyzeCertificate(parsed)
       
       if (sslResult.success && sslResult.data) {
         const sslAnalysis = sslResult.data
@@ -331,7 +335,7 @@ async function generateAnalysisWithAll(analysis: URLAnalysisResult): Promise<Ana
         }
 
         // Add SSL-based risk factors
-        sslAnalysis.riskFactors.forEach(factor => {
+        sslAnalysis.riskFactors.forEach((factor: any) => {
           // Convert SSL risk scores (0-100) to normalized scores (0-1)
           const normalizedScore = factor.score / 100
           factors.push({
@@ -342,7 +346,7 @@ async function generateAnalysisWithAll(analysis: URLAnalysisResult): Promise<Ana
           totalRiskScore += normalizedScore
         })
 
-        logger.info('SSL certificate analysis completed', {
+        services.logger.info('SSL certificate analysis completed', {
           domain: parsed.domain,
           certificateType: sslAnalysis.certificateType,
           ca: sslAnalysis.certificateAuthority?.name,
@@ -381,7 +385,7 @@ async function generateAnalysisWithAll(analysis: URLAnalysisResult): Promise<Ana
         error: error instanceof Error ? error.message : 'Unexpected SSL certificate analysis error'
       }
       
-      logger.warn('SSL certificate analysis error', {
+      services.logger.warn('SSL certificate analysis error', {
         domain: parsed.domain,
         error: error as Error
       })
@@ -397,7 +401,7 @@ async function generateAnalysisWithAll(analysis: URLAnalysisResult): Promise<Ana
 
   // Perform reputation analysis using Google Safe Browsing
   try {
-    const reputationResult = await defaultReputationService.analyzeURL(analysis.final)
+    const reputationResult = await services.reputation.analyzeURL(analysis.final)
     
     if (reputationResult.success && reputationResult.data) {
       const reputationAnalysis = reputationResult.data
@@ -406,13 +410,13 @@ async function generateAnalysisWithAll(analysis: URLAnalysisResult): Promise<Ana
         isClean: reputationAnalysis.isClean,
         riskLevel: reputationAnalysis.riskLevel,
         threatCount: reputationAnalysis.threatMatches.length,
-        threatTypes: reputationAnalysis.threatMatches.map(match => match.threatType),
+        threatTypes: reputationAnalysis.threatMatches.map((match: any) => match.threatType),
         analysis: reputationAnalysis,
         fromCache: reputationResult.fromCache
       }
 
       // Add reputation-based risk factors
-      reputationAnalysis.riskFactors.forEach(factor => {
+      reputationAnalysis.riskFactors.forEach((factor: any) => {
         // Convert reputation scores (0-100) to normalized scores (0-1)
         const normalizedScore = factor.score / 100
         factors.push({
@@ -423,7 +427,7 @@ async function generateAnalysisWithAll(analysis: URLAnalysisResult): Promise<Ana
         totalRiskScore += normalizedScore
       })
 
-      logger.info('Reputation analysis completed', {
+      services.logger.info('Reputation analysis completed', {
         url: analysis.final,
         isClean: reputationAnalysis.isClean,
         riskLevel: reputationAnalysis.riskLevel,
@@ -462,7 +466,7 @@ async function generateAnalysisWithAll(analysis: URLAnalysisResult): Promise<Ana
       error: error instanceof Error ? error.message : 'Unexpected reputation analysis error'
     }
     
-    logger.warn('Reputation analysis error', {
+    services.logger.warn('Reputation analysis error', {
       url: analysis.final,
       error: error as Error
     })
@@ -476,7 +480,7 @@ async function generateAnalysisWithAll(analysis: URLAnalysisResult): Promise<Ana
   }
 
   // Perform AI-powered URL risk analysis
-  if (parsed && defaultAIURLAnalyzer.isAvailable()) {
+  if (parsed && services.aiAnalyzer.isAvailable()) {
     try {
       const technicalContext: TechnicalAnalysisContext = {
         domainAge: domainAge?.analysis ? {
@@ -494,7 +498,7 @@ async function generateAnalysisWithAll(analysis: URLAnalysisResult): Promise<Ana
           isClean: reputation.analysis.isClean,
           riskLevel: reputation.analysis.riskLevel,
           threatCount: reputation.analysis.threatMatches.length,
-          threatTypes: reputation.analysis.threatMatches.map(match => match.threatType),
+          threatTypes: reputation.analysis.threatMatches.map((match: any) => match.threatType),
         } : undefined,
         urlStructure: {
           isIP: parsed.isIP,
@@ -505,7 +509,7 @@ async function generateAnalysisWithAll(analysis: URLAnalysisResult): Promise<Ana
         },
       }
 
-      const aiResult = await defaultAIURLAnalyzer.analyzeURL(analysis.final, parsed, technicalContext)
+      const aiResult = await services.aiAnalyzer.analyzeURL(analysis.final, parsed, technicalContext)
       
       if (aiResult.success && aiResult.data) {
         const aiResultData = aiResult.data
@@ -533,7 +537,7 @@ async function generateAnalysisWithAll(analysis: URLAnalysisResult): Promise<Ana
         totalRiskScore += aiRiskScore
 
         // Add specific AI indicators as factors
-        aiResultData.primaryRisks.slice(0, 3).forEach((risk, index) => {
+        aiResultData.primaryRisks.slice(0, 3).forEach((risk: any, index: number) => {
           const indicatorWeight = 0.1 * (3 - index) / 3 // Decreasing weight for additional risks
           factors.push({
             type: `ai-indicator-${index}`,
@@ -543,7 +547,7 @@ async function generateAnalysisWithAll(analysis: URLAnalysisResult): Promise<Ana
           totalRiskScore += indicatorWeight
         })
 
-        logger.info('AI URL analysis completed', {
+        services.logger.info('AI URL analysis completed', {
           url: sanitizeForLogging(analysis.final),
           aiRiskScore: aiResultData.riskScore,
           aiConfidence: aiResultData.confidence,
@@ -571,7 +575,7 @@ async function generateAnalysisWithAll(analysis: URLAnalysisResult): Promise<Ana
         })
         totalRiskScore += 0.05
 
-        logger.warn('AI URL analysis failed', {
+        services.logger.warn('AI URL analysis failed', {
           url: sanitizeForLogging(analysis.final),
           error: new Error(aiResult.error?.message || 'AI analysis failed')
         })
@@ -589,7 +593,7 @@ async function generateAnalysisWithAll(analysis: URLAnalysisResult): Promise<Ana
         error: error instanceof Error ? error.message : 'Unexpected AI analysis error'
       }
       
-      logger.warn('AI URL analysis error', {
+      services.logger.warn('AI URL analysis error', {
         url: sanitizeForLogging(analysis.final),
         error: error as Error
       })
@@ -601,7 +605,7 @@ async function generateAnalysisWithAll(analysis: URLAnalysisResult): Promise<Ana
       })
       totalRiskScore += 0.02
     }
-  } else if (!defaultAIURLAnalyzer.isAvailable()) {
+  } else if (!services.aiAnalyzer.isAvailable()) {
     // AI analysis is disabled or not configured
     aiAnalysis = {
       riskScore: 0,
@@ -614,7 +618,7 @@ async function generateAnalysisWithAll(analysis: URLAnalysisResult): Promise<Ana
       error: 'AI analysis is disabled or not configured'
     }
 
-    logger.debug('AI URL analysis skipped', {
+    services.logger.debug('AI URL analysis skipped', {
       url: sanitizeForLogging(analysis.final),
       reason: 'AI analysis not available'
     })

@@ -12,7 +12,7 @@ import {
   URL_ANALYSIS_PROMPT_VERSION,
 } from './prompts/url-analysis-prompt'
 import { loadAIConfig, createServiceOptions, validateAIConfig } from '../../config/ai'
-import { logger } from '../logger'
+import { Logger } from '../logger'
 import type {
   AIAnalysisResult,
   AIAnalysisRequest,
@@ -26,6 +26,9 @@ import {
   ScamCategory,
 } from '../../types/ai'
 import type { ParsedURL } from '../../types/url'
+
+// Create logger instance - this will be replaced with dependency injection later
+const logger = new Logger()
 
 /**
  * AI URL Analyzer class with caching integration
@@ -367,5 +370,7 @@ export class AIURLAnalyzer {
   }
 }
 
-// Default instance for use throughout the application
+// Temporary backward compatibility for tests - DEPRECATED, use ServiceFactory instead
+/** @deprecated Use ServiceFactory.createAIURLAnalyzer() instead */
 export const defaultAIURLAnalyzer = new AIURLAnalyzer()
+

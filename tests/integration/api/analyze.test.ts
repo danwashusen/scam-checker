@@ -18,8 +18,8 @@ jest.mock('next/server', () => {
 })
 
 // Mock WHOIS service to avoid real network calls
-jest.mock('../../../src/lib/analysis/whois-service', () => ({
-  defaultWhoisService: {
+jest.mock('../../../src/lib/analysis/whois-service', () => {
+  const mockInstance = {
     analyzeDomain: jest.fn().mockResolvedValue({
       success: true,
       domain: 'example.com',
@@ -43,13 +43,87 @@ jest.mock('../../../src/lib/analysis/whois-service', () => ({
       },
       fromCache: false,
       processingTimeMs: 100
-    })
+    }),
+    getCacheStats: jest.fn(),
+    clearCache: jest.fn(),
+    isCached: jest.fn(),
+    config: {}
   }
-}))
+  return {
+    WhoisService: jest.fn().mockImplementation(() => mockInstance),
+    defaultWhoisService: mockInstance
+  }
+})
+
+// Mock SSL service to avoid real network calls
+jest.mock('../../../src/lib/analysis/ssl-service', () => {
+  const mockInstance = {
+    analyzeCertificate: jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        certificateType: 'DV',
+        certificateAuthority: { name: 'Test CA', trusted: true },
+        daysUntilExpiry: 90,
+        issuedDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+        certificateAge: 30,
+        score: 15,
+        riskFactors: [],
+        confidence: 0.9
+      },
+      fromCache: false
+    }),
+    getCacheStats: jest.fn(),
+    clearCache: jest.fn(),
+    isCached: jest.fn(),
+    config: {}
+  }
+  return {
+    SSLService: jest.fn().mockImplementation(() => mockInstance),
+    defaultSSLService: mockInstance
+  }
+})
+
+// Mock reputation service to avoid external API calls
+jest.mock('../../../src/lib/analysis/reputation-service', () => {
+  const mockInstance = {
+    analyzeURL: jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        isClean: true,
+        threatMatches: [],
+        riskFactors: []
+      },
+      fromCache: false
+    }),
+    checkMultipleURLs: jest.fn(),
+    clearCache: jest.fn(),
+    getStats: jest.fn(),
+    config: {}
+  }
+  return {
+    ReputationService: jest.fn().mockImplementation(() => mockInstance),
+    defaultReputationService: mockInstance
+  }
+})
+
+// Mock AI analyzer
+jest.mock('../../../src/lib/analysis/ai-url-analyzer', () => {
+  const mockInstance = {
+    isAvailable: jest.fn(() => false),
+    analyzeURL: jest.fn(),
+    getConfig: jest.fn(),
+    getCacheStats: jest.fn(),
+    getUsageStats: jest.fn()
+  }
+  return {
+    AIURLAnalyzer: jest.fn().mockImplementation(() => mockInstance),
+    defaultAIURLAnalyzer: mockInstance
+  }
+})
 
 // Mock the logger module
-jest.mock('../../../src/lib/logger', () => ({
-  logger: {
+jest.mock('../../../src/lib/logger', () => {
+  const mockInstance = {
     warn: jest.fn(),
     error: jest.fn(),
     info: jest.fn(),
@@ -58,7 +132,11 @@ jest.mock('../../../src/lib/logger', () => ({
       end: jest.fn()
     })
   }
-}))
+  return {
+    Logger: jest.fn().mockImplementation(() => mockInstance),
+    logger: mockInstance
+  }
+})
 
 import * as loggerModule from '../../../src/lib/logger'
 import type { LogContext } from '../../../src/lib/logger'

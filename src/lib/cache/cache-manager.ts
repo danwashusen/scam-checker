@@ -1,6 +1,9 @@
 import type { CacheInterface, CacheOptions, CacheEntry, CacheStats } from './cache-types'
 import { NoOpCache } from './no-op-cache'
-import { logger } from '../logger'
+import { Logger } from '../logger'
+
+// Create logger instance - this will be replaced with dependency injection later
+const logger = new Logger()
 
 /**
  * CacheManager - Generic cache implementation with configurable backing store

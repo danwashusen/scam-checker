@@ -2,7 +2,10 @@ import * as whois from 'whois'
 import { CacheManager } from '../cache/cache-manager'
 import { WhoisParser } from './whois-parser'
 import { getRootDomain } from '../validation/url-parser'
-import { logger } from '../logger'
+import { Logger } from '../logger'
+
+// Create logger instance - this will be replaced with dependency injection later
+const logger = new Logger()
 import type { ParsedURL } from '../validation/url-parser'
 import type {
   DomainAgeAnalysis,
@@ -23,7 +26,7 @@ import type {
  */
 export class WhoisService {
   private cache: CacheManager<WhoisCacheEntry>
-  private config: WhoisServiceConfig
+  public config: WhoisServiceConfig
 
   constructor(config?: Partial<WhoisServiceConfig>) {
     this.config = {
@@ -382,7 +385,7 @@ export class WhoisService {
   }
 }
 
-/**
- * Default WHOIS service instance
- */
+// Temporary backward compatibility for tests - DEPRECATED, use ServiceFactory instead
+/** @deprecated Use ServiceFactory.createWhoisService() instead */
 export const defaultWhoisService = new WhoisService()
+
