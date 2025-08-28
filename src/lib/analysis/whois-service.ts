@@ -135,6 +135,11 @@ export class WhoisService {
         // Perform WHOIS lookup
         const rawResponse = await this.whoisLookup(domain, lookupOptions)
         
+        // Check if response indicates domain doesn't exist
+        if (this.isDomainNotFound(rawResponse)) {
+          throw new Error(`Domain not found: ${domain}`)
+        }
+        
         const metadata: Partial<WhoisMetadata> = {
           queryTime: Date.now() - startTime,
           followedRedirects: lookupOptions.follow,
@@ -212,6 +217,13 @@ export class WhoisService {
         return null
       }
       
+      // Extract root domain from subdomain (e.g., www.github.com -> github.com)
+      const domainParts = withoutPort.toLowerCase().split('.')
+      if (domainParts.length >= 2) {
+        // Return the last two parts as the root domain (domain.tld)
+        return domainParts.slice(-2).join('.')
+      }
+      
       return withoutPort.toLowerCase()
     } catch {
       return null
@@ -285,6 +297,18 @@ export class WhoisService {
     
     const err = error as { code?: string; message?: string }
     
+    // Check for domain not found in WHOIS response
+    if (err.message?.includes('Domain not found')) {
+      return {
+        type: 'not_found',
+        message: 'Domain does not exist in WHOIS database',
+        domain,
+        retryable: false,
+        timestamp,
+        details: { reason: 'domain_nonexistent' }
+      }
+    }
+    
     if (err.code === 'ENOTFOUND' || err.code === 'ENODATA') {
       return {
         type: 'not_found',
@@ -354,6 +378,28 @@ export class WhoisService {
       fromCache: false,
       processingTimeMs: Date.now() - startTime
     }
+  }
+
+  /**
+   * Check if WHOIS response indicates domain doesn't exist
+   */
+  private isDomainNotFound(response: string): boolean {
+    const lowercaseResponse = response.toLowerCase()
+    
+    // Common patterns indicating domain doesn't exist
+    const notFoundPatterns = [
+      'no match for domain',
+      'not found',
+      'no matching record',
+      'no data found',
+      'domain not found',
+      'no entries found',
+      'status: available',
+      'domain status: available',
+      'no match'
+    ]
+    
+    return notFoundPatterns.some(pattern => lowercaseResponse.includes(pattern))
   }
 
   /**
