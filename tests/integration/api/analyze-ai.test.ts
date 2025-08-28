@@ -100,6 +100,10 @@ import { POST, GET } from '../../../src/app/api/analyze/route'
 import { NextRequest } from 'next/server'
 import type { AIAnalysisResult } from '../../../src/types/ai'
 import { AIProvider, ScamCategory } from '../../../src/types/ai'
+import { defaultAIURLAnalyzer } from '../../../src/lib/analysis/ai-url-analyzer'
+import { defaultWhoisService } from '../../../src/lib/analysis/whois-service'
+import { defaultSSLService } from '../../../src/lib/analysis/ssl-service'
+import { defaultReputationService } from '../../../src/lib/analysis/reputation-service'
 
 interface MockAIAnalyzer {
   isAvailable: jest.Mock
@@ -136,31 +140,34 @@ describe('AI Analysis Integration', () => {
     jest.clearAllMocks()
 
     // Get the mocked AI analyzer
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { defaultAIURLAnalyzer } = require('../../../src/lib/analysis/ai-url-analyzer')
-    mockAIAnalyzer = defaultAIURLAnalyzer as MockAIAnalyzer
+    mockAIAnalyzer = defaultAIURLAnalyzer as unknown as MockAIAnalyzer
 
     // Mock other services to return basic responses
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { defaultWhoisService } = require('../../../src/lib/analysis/whois-service')
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { defaultSSLService } = require('../../../src/lib/analysis/ssl-service')
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { defaultReputationService } = require('../../../src/lib/analysis/reputation-service')
+    const mockedWhoisService = defaultWhoisService as jest.Mocked<typeof defaultWhoisService>
+    const mockedSSLService = defaultSSLService as jest.Mocked<typeof defaultSSLService>
+    const mockedReputationService = defaultReputationService as jest.Mocked<typeof defaultReputationService>
 
-    defaultWhoisService.analyzeDomain.mockResolvedValue({
+    mockedWhoisService.analyzeDomain.mockResolvedValue({
       success: false,
-      error: { message: 'Mocked WHOIS failure for AI test isolation' },
+      domain: 'example.com',
+      fromCache: false,
+      processingTimeMs: 100,
+      error: { message: 'Mocked WHOIS failure for AI test isolation', type: 'network', domain: 'example.com', retryable: false, timestamp: new Date().toISOString() },
     })
 
-    defaultSSLService.analyzeCertificate.mockResolvedValue({
+    mockedSSLService.analyzeCertificate.mockResolvedValue({
       success: false,
-      error: { message: 'Mocked SSL failure for AI test isolation' },
+      domain: 'example.com',
+      port: 443,
+      fromCache: false,
+      processingTimeMs: 100,
+      error: { message: 'Mocked SSL failure for AI test isolation', type: 'network', domain: 'example.com', port: 443, retryable: false, timestamp: new Date().toISOString() },
     })
 
-    defaultReputationService.analyzeURL.mockResolvedValue({
+    mockedReputationService.analyzeURL.mockResolvedValue({
       success: false,
-      error: { message: 'Mocked reputation failure for AI test isolation' },
+      error: { message: 'Mocked reputation failure for AI test isolation', type: 'network_error' },
+      fromCache: false
     })
 
     // Default AI analyzer configuration

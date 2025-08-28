@@ -355,7 +355,7 @@ Registrant Country: US
       { input: 'https://example.com', expected: 'example.com' },
       { input: 'http://example.com/path', expected: 'example.com' },
       { input: 'https://example.com:8080/path?param=value', expected: 'example.com' },
-      { input: 'subdomain.example.com', expected: 'subdomain.example.com' },
+      { input: 'subdomain.example.com', expected: 'example.com' }, // Extract root domain for WHOIS
       { input: 'invalid-domain', expected: null },
       { input: '192.168.1.1', expected: null }, // IP addresses should return null
       { input: '', expected: null },

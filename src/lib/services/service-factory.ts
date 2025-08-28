@@ -2,6 +2,8 @@ import { ReputationService } from '../analysis/reputation-service'
 import { WhoisService } from '../analysis/whois-service'
 import { SSLService } from '../analysis/ssl-service'
 import { AIURLAnalyzer } from '../analysis/ai-url-analyzer'
+import { ScoringCalculator } from '../scoring/scoring-calculator'
+import { AnalysisOrchestrator } from '../orchestration/analysis-orchestrator'
 import { Logger } from '../logger'
 import type {
   SafeBrowsingConfig,
@@ -13,6 +15,8 @@ import type {
   AnalysisServices,
   ServiceEnvironment
 } from '../../types/services'
+import type { ScoringConfig } from '../../types/scoring'
+import type { OrchestrationConfig } from '../orchestration/analysis-orchestrator'
 
 /**
  * Service Factory for creating service instances with dependency injection
@@ -57,6 +61,20 @@ export class ServiceFactory {
     // Logger doesn't currently accept config in constructor
     // For now, return a new instance - this will need to be enhanced
     return new Logger()
+  }
+
+  /**
+   * Create ScoringCalculator instance with optional configuration
+   */
+  static createScoringCalculator(config?: Partial<ScoringConfig>): ScoringCalculator {
+    return new ScoringCalculator(config)
+  }
+
+  /**
+   * Create AnalysisOrchestrator instance with optional configuration
+   */
+  static createAnalysisOrchestrator(config?: Partial<OrchestrationConfig>): AnalysisOrchestrator {
+    return new AnalysisOrchestrator(config)
   }
 
   /**
@@ -111,6 +129,23 @@ export class ServiceFactory {
           },
           logger: {
             level: 'info'
+          },
+          scoring: {
+            missingDataStrategy: 'redistribute',
+            normalization: {
+              method: 'linear'
+            }
+          },
+          orchestration: {
+            timeouts: {
+              totalAnalysisTimeout: 45000,
+              serviceTimeout: 25000,
+              scoringTimeout: 3000
+            },
+            parallelExecution: {
+              enabled: true,
+              maxConcurrency: 4
+            }
           }
         }
       case 'staging':

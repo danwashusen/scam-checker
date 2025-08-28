@@ -4,6 +4,7 @@
 
 import { AIService } from '../../../../src/lib/analysis/ai-service'
 import { AIProvider, AIErrorCode } from '../../../../src/types/ai'
+import OpenAI from 'openai'
 
 // Mock OpenAI
 jest.mock('openai', () => {
@@ -28,7 +29,7 @@ describe('AIService', () => {
     jest.clearAllMocks()
     
     // Get the mocked OpenAI class
-    const OpenAI = require('openai').default
+    const _MockOpenAI = OpenAI as jest.MockedClass<typeof OpenAI>
     mockOpenAI = {
       chat: {
         completions: {
@@ -36,7 +37,7 @@ describe('AIService', () => {
         },
       },
     }
-    OpenAI.mockImplementation(() => mockOpenAI)
+    ;(OpenAI as jest.MockedClass<typeof OpenAI>).mockImplementation(() => mockOpenAI)
   })
 
   describe('constructor', () => {
@@ -48,10 +49,9 @@ describe('AIService', () => {
         timeout: 30000,
       }
 
-      const OpenAI = require('openai').default
       new AIService(options)
 
-      expect(OpenAI).toHaveBeenCalledWith({
+      expect(OpenAI as jest.MockedClass<typeof OpenAI>).toHaveBeenCalledWith({
         apiKey: 'test-api-key',
         timeout: 30000,
       })

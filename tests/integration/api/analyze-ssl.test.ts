@@ -231,11 +231,9 @@ describe('SSL Certificate Analysis Integration', () => {
       expect(data.data.sslCertificate.fromCache).toBe(false)
       expect(data.data.sslCertificate.analysis).toBeDefined()
 
-      // Verify SSL service was called
+      // Verify SSL service was called with hostname
       expect(mockSSLService.defaultSSLService.analyzeCertificate).toHaveBeenCalledWith(
-        expect.objectContaining({
-          domain: 'example.com'
-        })
+        'example.com'
       )
     })
 

@@ -54,10 +54,13 @@ export class E2ETestHelper {
    * Validate API response structure
    */
   validateResponseStructure(
-    response: any,
+    response: unknown,
     requiredFields: string[],
     serviceName: string
   ): void {
+    if (typeof response !== 'object' || response === null) {
+      throw new Error(`${serviceName} response is not a valid object`)
+    }
     requiredFields.forEach(field => {
       if (!(field in response)) {
         throw new Error(`${serviceName} response missing required field: ${field}`)
@@ -68,9 +71,10 @@ export class E2ETestHelper {
   /**
    * Check if error is retryable
    */
-  isRetryableError(error: any): boolean {
-    const message = error?.message?.toLowerCase() || ''
-    const code = error?.code?.toLowerCase() || ''
+  isRetryableError(error: unknown): boolean {
+    const err = error as { message?: string; code?: string }
+    const message = err.message?.toLowerCase() || ''
+    const code = err.code?.toLowerCase() || ''
     
     const retryablePatterns = [
       'timeout',
@@ -93,9 +97,10 @@ export class E2ETestHelper {
   /**
    * Classify error type
    */
-  classifyError(error: any): string {
-    const message = error?.message?.toLowerCase() || ''
-    const code = error?.code || error?.response?.status || ''
+  classifyError(error: unknown): string {
+    const err = error as { message?: string; code?: string; response?: { status?: number } }
+    const message = err.message?.toLowerCase() || ''
+    const code = err.code || err.response?.status || ''
     
     if (code === 401 || message.includes('unauthorized') || message.includes('api key')) {
       return 'AUTH_ERROR'
@@ -119,7 +124,7 @@ export class E2ETestHelper {
   /**
    * Log test context
    */
-  logContext(context: Record<string, any>): void {
+  logContext(context: Record<string, unknown>): void {
     console.log('\n📋 Test Context:')
     Object.entries(context).forEach(([key, value]) => {
       console.log(`   ${key}: ${JSON.stringify(value)}`)
@@ -142,20 +147,20 @@ export const assertions = {
     expect(domain).toMatch(/^[a-z0-9.-]+\.[a-z]{2,}$/i)
   },
   
-  assertValidTimestamp(timestamp: any): void {
-    const date = new Date(timestamp)
+  assertValidTimestamp(timestamp: unknown): void {
+    const date = new Date(timestamp as string | number | Date)
     expect(date.getTime()).toBeGreaterThan(0)
     expect(date.getTime()).toBeLessThanOrEqual(Date.now())
   },
 
-  assertValidIssuedDate(timestamp: any): void {
-    const date = new Date(timestamp)
+  assertValidIssuedDate(timestamp: unknown): void {
+    const date = new Date(timestamp as string | number | Date)
     expect(date.getTime()).toBeGreaterThan(0)
     expect(date.getTime()).toBeLessThanOrEqual(Date.now())
   },
 
-  assertValidExpirationDate(timestamp: any): void {
-    const date = new Date(timestamp)
+  assertValidExpirationDate(timestamp: unknown): void {
+    const date = new Date(timestamp as string | number | Date)
     expect(date.getTime()).toBeGreaterThan(0)
     // Expiration dates can be in the future (and should be for valid certificates)
     // Just check it's not unreasonably far in the future (10 years max)

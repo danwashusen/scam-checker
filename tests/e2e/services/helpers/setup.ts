@@ -8,7 +8,16 @@ dotenv.config({ path: path.resolve(process.cwd(), '.env.test') })
 jest.setTimeout(60000)
 
 // Global test helpers
-global.testHelpers = {
+interface TestHelpers {
+  delay: (ms: number) => Promise<void>
+  isCI: () => boolean
+  skipIfNoApiKey: (apiKey: string | undefined, serviceName: string) => boolean
+  logTestStart: (testName: string) => void
+  logTestEnd: (testName: string, duration: number) => void
+}
+
+// Global test helpers
+;(global as typeof globalThis & { testHelpers: TestHelpers }).testHelpers = {
   delay: (ms: number) => new Promise(resolve => setTimeout(resolve, ms)),
   
   isCI: () => process.env.CI === 'true',
@@ -47,14 +56,9 @@ expect.extend({
 
 // Declare global types
 declare global {
-  var testHelpers: {
-    delay: (ms: number) => Promise<void>
-    isCI: () => boolean
-    skipIfNoApiKey: (apiKey: string | undefined, serviceName: string) => boolean
-    logTestStart: (testName: string) => void
-    logTestEnd: (testName: string, duration: number) => void
-  }
+  const testHelpers: TestHelpers
   
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace jest {
     interface Matchers<R> {
       toBeWithinRange(floor: number, ceiling: number): R

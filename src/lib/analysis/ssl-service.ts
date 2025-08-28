@@ -831,8 +831,10 @@ export class SSLService {
       // Handle port numbers
       const withoutPort = cleaned.split(':')[0]
       
-      // Basic domain validation - allow localhost and other hostnames
-      if (!/^[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9](\.[a-zA-Z]{2,})?$/.test(withoutPort)) {
+      // Basic domain validation - require valid domain names with TLD, reject IPs
+      // Must contain at least one dot and end with valid TLD
+      if (!/^[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9]\.[a-zA-Z]{2,}$/.test(withoutPort) || 
+          /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(withoutPort)) {
         return null
       }
       

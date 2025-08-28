@@ -126,7 +126,7 @@ describe('AIService E2E Tests', () => {
         console.log(`   Risk level: ${analysis.riskLevel}`)
         console.log(`   Confidence: ${analysis.confidence}`)
         console.log(`   Indicators: ${analysis.indicators?.length || 0}`)
-      } catch (e) {
+      } catch (_e) {
         console.log(`   Note: Response was not valid JSON`)
       }
     })
@@ -147,7 +147,7 @@ describe('AIService E2E Tests', () => {
         const analysis = JSON.parse(result.data!)
         console.log(`   Suspicious: ${analysis.isSuspicious}`)
         console.log(`   Reasons: ${analysis.reasons?.join(', ')}`)
-      } catch (e) {
+      } catch (_e) {
         // AI might not return valid JSON every time
         console.log(`   AI response received (non-JSON)`)
       }
@@ -182,14 +182,12 @@ describe('AIService E2E Tests', () => {
       expect(result.success).toBe(true)
       
       // Attempt to parse as JSON
-      let isValidJson = false
       try {
         const parsed = JSON.parse(result.data!)
-        isValidJson = true
         expect(parsed).toHaveProperty('safe')
         expect(parsed).toHaveProperty('score')
         console.log(`   Valid JSON returned: ${JSON.stringify(parsed)}`)
-      } catch (e) {
+      } catch (_e) {
         console.log(`   Warning: AI did not return valid JSON despite request`)
       }
     })

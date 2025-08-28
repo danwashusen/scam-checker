@@ -8,8 +8,8 @@ import { ServiceBuilder } from '../../../lib/services/service-builder'
 import type { AnalysisServices } from '../../../types/services'
 import type { URLAnalysisResult, URLValidationOptions, SanitizationOptions } from '../../../types/url'
 import type { DomainAgeAnalysis } from '../../../types/whois'
-import type { SSLCertificateAnalysis } from '../../../types/ssl'
 import type { ReputationAnalysis } from '../../../types/reputation'
+import type { SSLCertificateAnalysis } from '../../../types/ssl'
 import type { AIAnalysisResult, TechnicalAnalysisContext } from '../../../types/ai'
 
 interface RiskFactor {
@@ -258,7 +258,7 @@ async function generateAnalysisWithAll(analysis: URLAnalysisResult, services: An
         }
 
         // Add WHOIS-based risk factors
-        whoisAnalysis.riskFactors.forEach((factor: any) => {
+        whoisAnalysis.riskFactors.forEach((factor) => {
           factors.push({
             type: factor.type,
             score: factor.score,
@@ -320,7 +320,7 @@ async function generateAnalysisWithAll(analysis: URLAnalysisResult, services: An
   // Perform SSL certificate analysis if using HTTPS
   if (parsed && !parsed.isIP && analysis.final.startsWith('https:')) {
     try {
-      const sslResult = await services.ssl.analyzeCertificate(parsed)
+      const sslResult = await services.ssl.analyzeCertificate(parsed.hostname)
       
       if (sslResult.success && sslResult.data) {
         const sslAnalysis = sslResult.data
@@ -335,7 +335,7 @@ async function generateAnalysisWithAll(analysis: URLAnalysisResult, services: An
         }
 
         // Add SSL-based risk factors
-        sslAnalysis.riskFactors.forEach((factor: any) => {
+        sslAnalysis.riskFactors.forEach((factor) => {
           // Convert SSL risk scores (0-100) to normalized scores (0-1)
           const normalizedScore = factor.score / 100
           factors.push({
@@ -410,13 +410,13 @@ async function generateAnalysisWithAll(analysis: URLAnalysisResult, services: An
         isClean: reputationAnalysis.isClean,
         riskLevel: reputationAnalysis.riskLevel,
         threatCount: reputationAnalysis.threatMatches.length,
-        threatTypes: reputationAnalysis.threatMatches.map((match: any) => match.threatType),
+        threatTypes: reputationAnalysis.threatMatches.map((match) => match.threatType),
         analysis: reputationAnalysis,
         fromCache: reputationResult.fromCache
       }
 
       // Add reputation-based risk factors
-      reputationAnalysis.riskFactors.forEach((factor: any) => {
+      reputationAnalysis.riskFactors.forEach((factor) => {
         // Convert reputation scores (0-100) to normalized scores (0-1)
         const normalizedScore = factor.score / 100
         factors.push({
@@ -498,7 +498,7 @@ async function generateAnalysisWithAll(analysis: URLAnalysisResult, services: An
           isClean: reputation.analysis.isClean,
           riskLevel: reputation.analysis.riskLevel,
           threatCount: reputation.analysis.threatMatches.length,
-          threatTypes: reputation.analysis.threatMatches.map((match: any) => match.threatType),
+          threatTypes: reputation.analysis.threatMatches.map((match) => match.threatType),
         } : undefined,
         urlStructure: {
           isIP: parsed.isIP,
@@ -537,7 +537,7 @@ async function generateAnalysisWithAll(analysis: URLAnalysisResult, services: An
         totalRiskScore += aiRiskScore
 
         // Add specific AI indicators as factors
-        aiResultData.primaryRisks.slice(0, 3).forEach((risk: any, index: number) => {
+        aiResultData.primaryRisks.slice(0, 3).forEach((risk, index: number) => {
           const indicatorWeight = 0.1 * (3 - index) / 3 // Decreasing weight for additional risks
           factors.push({
             type: `ai-indicator-${index}`,

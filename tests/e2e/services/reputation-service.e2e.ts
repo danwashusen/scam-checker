@@ -37,7 +37,7 @@ describe('ReputationService E2E Tests', () => {
         console.log('⚠️  Skipping test - no API key configured')
         return
       }
-      const startTime = Date.now()
+      const _startTime = Date.now()
       testHelper.logContext({
         test: 'API connectivity',
         url: TEST_URLS.googleHome.url

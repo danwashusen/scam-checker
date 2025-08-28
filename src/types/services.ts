@@ -1,9 +1,21 @@
-import type { SafeBrowsingConfig } from './reputation'
-import type { WhoisServiceConfig } from './whois'
-import type { SSLServiceConfig } from './ssl'
+import type { SafeBrowsingConfig, ReputationAnalysis } from './reputation'
+import type { WhoisServiceConfig, DomainAgeAnalysis } from './whois'
+import type { SSLServiceConfig, SSLCertificateAnalysis } from './ssl'
+import type { ScoringConfig } from './scoring'
+import type { AIAnalysisResult, TechnicalAnalysisContext, AIServiceResult } from './ai'
+import type { ParsedURL } from '../lib/validation/url-parser'
+import type { LogContext } from '../lib/logger'
+// Define CacheStats locally since ./cache module may not exist
+interface CacheStats {
+  hits: number
+  misses: number
+  hitRate: number
+  size: number
+  maxSize: number
+}
 
 // Re-export the config types for easier access
-export type { SafeBrowsingConfig, WhoisServiceConfig, SSLServiceConfig }
+export type { SafeBrowsingConfig, WhoisServiceConfig, SSLServiceConfig, ScoringConfig }
 
 /**
  * Logger configuration interface
@@ -31,6 +43,27 @@ export interface AIAnalyzerConfig {
 }
 
 /**
+ * Orchestration configuration interface
+ */
+export interface OrchestrationConfig {
+  timeouts?: {
+    totalAnalysisTimeout?: number
+    serviceTimeout?: number
+    scoringTimeout?: number
+  }
+  parallelExecution?: {
+    enabled?: boolean
+    maxConcurrency?: number
+  }
+  errorHandling?: {
+    continueOnPartialFailure?: boolean
+    minimumRequiredServices?: number
+    retryFailedServices?: boolean
+    maxRetries?: number
+  }
+}
+
+/**
  * Combined configuration for all services
  */
 export interface ServicesConfig {
@@ -39,6 +72,8 @@ export interface ServicesConfig {
   ssl?: Partial<SSLServiceConfig>
   ai?: Partial<AIAnalyzerConfig>
   logger?: Partial<LoggerConfig>
+  scoring?: Partial<ScoringConfig>
+  orchestration?: Partial<OrchestrationConfig>
 }
 
 /**
@@ -46,38 +81,38 @@ export interface ServicesConfig {
  */
 export interface AnalysisServices {
   reputation: {
-    analyzeURL: (url: string) => Promise<{ success: boolean; data?: any; fromCache: boolean; error?: { message: string } }>
-    checkMultipleURLs: (urls: string[]) => Promise<any[]>
+    analyzeURL: (url: string) => Promise<{ success: boolean; data?: ReputationAnalysis; fromCache: boolean; error?: { message: string } }>
+    checkMultipleURLs: (urls: string[]) => Promise<Array<{ success: boolean; data?: ReputationAnalysis; fromCache: boolean; error?: { message: string } }>>
     clearCache: () => Promise<void>
-    getStats: () => any
-    config: Record<string, any>
+    getStats: () => { cacheHitRate: number; totalRequests: number; apiCalls: number }
+    config: SafeBrowsingConfig
   }
   whois: {
-    analyzeDomain: (domain: string | any) => Promise<{ success: boolean; data?: any; fromCache: boolean; error?: { message: string } }>
-    getCacheStats: () => any
+    analyzeDomain: (domain: string | ParsedURL) => Promise<{ success: boolean; data?: DomainAgeAnalysis; fromCache: boolean; error?: { message: string } }>
+    getCacheStats: () => CacheStats
     clearCache: () => Promise<void>
     isCached: (domain: string) => Promise<boolean>
-    config: Record<string, any>
+    config: WhoisServiceConfig
   }
   ssl: {
-    analyzeCertificate: (domain: string | any, options?: any) => Promise<{ success: boolean; data?: any; fromCache: boolean; error?: { message: string } }>
-    getCacheStats: () => any
+    analyzeCertificate: (domain: string, options?: { timeout?: number }) => Promise<{ success: boolean; data?: SSLCertificateAnalysis; fromCache: boolean; error?: { message: string } }>
+    getCacheStats: () => CacheStats
     clearCache: () => Promise<void>
     isCached: (domain: string, port?: number) => Promise<boolean>
-    config: Record<string, any>
+    config: SSLServiceConfig
   }
   aiAnalyzer: {
-    analyzeURL: (url: string, parsedUrl: any, context: any) => Promise<{ success: boolean; data?: any; fromCache: boolean; error?: { message: string } }>
+    analyzeURL: (url: string, parsedUrl: ParsedURL, context: TechnicalAnalysisContext) => Promise<AIServiceResult<AIAnalysisResult>>
     isAvailable: () => boolean
-    getConfig: () => any
-    getCacheStats: () => any
+    getConfig: () => Record<string, unknown>
+    getCacheStats: () => CacheStats
   }
   logger: {
-    debug: (message: string, context?: any) => void
-    info: (message: string, context?: any) => void
-    warn: (message: string, context?: any) => void
-    error: (message: string, context?: any) => void
-    timer: (message: string, context?: any) => { end: (additionalContext?: any) => void }
+    debug: (message: string, context?: LogContext) => void
+    info: (message: string, context?: LogContext) => void
+    warn: (message: string, context?: LogContext) => void
+    error: (message: string, context?: LogContext) => void
+    timer: (message: string, context?: LogContext) => { end: (additionalContext?: LogContext) => void }
   }
 }
 
