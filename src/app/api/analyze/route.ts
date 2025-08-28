@@ -7,11 +7,13 @@ import { validateAnalysisRequest, formatValidationError } from '../../../lib/val
 import { defaultWhoisService } from '../../../lib/analysis/whois-service'
 import { defaultSSLService } from '../../../lib/analysis/ssl-service'
 import { defaultReputationService } from '../../../lib/analysis/reputation-service'
+import { defaultAIURLAnalyzer } from '../../../lib/analysis/ai-url-analyzer'
 import { logger } from '../../../lib/logger'
 import type { URLAnalysisResult, URLValidationOptions, SanitizationOptions } from '../../../types/url'
 import type { DomainAgeAnalysis } from '../../../types/whois'
 import type { SSLCertificateAnalysis } from '../../../types/ssl'
 import type { ReputationAnalysis } from '../../../types/reputation'
+import type { AIAnalysisResult, TechnicalAnalysisContext } from '../../../types/ai'
 
 interface RiskFactor {
   type: string
@@ -49,6 +51,16 @@ interface AnalysisResult {
     threatCount: number
     threatTypes: string[]
     analysis: ReputationAnalysis | null
+    fromCache: boolean
+    error?: string
+  }
+  aiAnalysis?: {
+    riskScore: number
+    confidence: number
+    scamCategory: string
+    primaryRisks: string[]
+    indicators: string[]
+    analysis: AIAnalysisResult | null
     fromCache: boolean
     error?: string
   }
@@ -223,6 +235,7 @@ async function generateAnalysisWithAll(analysis: URLAnalysisResult): Promise<Ana
   let domainAge: AnalysisResult['domainAge'] = undefined
   let sslCertificate: AnalysisResult['sslCertificate'] = undefined
   let reputation: AnalysisResult['reputation'] = undefined
+  let aiAnalysis: AnalysisResult['aiAnalysis'] = undefined
 
   // Perform WHOIS analysis if we have a valid domain (not IP)
   if (parsed && !parsed.isIP) {
@@ -461,6 +474,151 @@ async function generateAnalysisWithAll(analysis: URLAnalysisResult): Promise<Ana
     })
     totalRiskScore += 0.05
   }
+
+  // Perform AI-powered URL risk analysis
+  if (parsed && defaultAIURLAnalyzer.isAvailable()) {
+    try {
+      const technicalContext: TechnicalAnalysisContext = {
+        domainAge: domainAge?.analysis ? {
+          ageInDays: domainAge.analysis.ageInDays,
+          registrationDate: domainAge.analysis.registrationDate?.toISOString() || null,
+          registrar: domainAge.analysis.registrar,
+        } : undefined,
+        sslCertificate: sslCertificate?.analysis ? {
+          certificateType: sslCertificate.analysis.certificateType,
+          certificateAuthority: sslCertificate.analysis.certificateAuthority?.name || null,
+          daysUntilExpiry: sslCertificate.analysis.daysUntilExpiry,
+          issuedDate: sslCertificate.analysis.issuedDate?.toISOString() || null,
+        } : undefined,
+        reputation: reputation?.analysis ? {
+          isClean: reputation.analysis.isClean,
+          riskLevel: reputation.analysis.riskLevel,
+          threatCount: reputation.analysis.threatMatches.length,
+          threatTypes: reputation.analysis.threatMatches.map(match => match.threatType),
+        } : undefined,
+        urlStructure: {
+          isIP: parsed.isIP,
+          subdomain: parsed.subdomain,
+          pathDepth: parsed.components.pathParts.length,
+          queryParamCount: parsed.components.queryParams.length,
+          hasHttps: analysis.final.startsWith('https:'),
+        },
+      }
+
+      const aiResult = await defaultAIURLAnalyzer.analyzeURL(analysis.final, parsed, technicalContext)
+      
+      if (aiResult.success && aiResult.data) {
+        const aiResultData = aiResult.data
+        
+        aiAnalysis = {
+          riskScore: aiResultData.riskScore,
+          confidence: aiResultData.confidence,
+          scamCategory: aiResultData.scamCategory,
+          primaryRisks: aiResultData.primaryRisks,
+          indicators: aiResultData.indicators,
+          analysis: aiResultData,
+          fromCache: aiResult.fromCache
+        }
+
+        // Add AI-based risk factors with appropriate weighting
+        // AI analysis gets significant weight (0.4 multiplier) due to its sophistication
+        const aiWeight = 0.4
+        const aiRiskScore = (aiResultData.riskScore / 100) * aiWeight
+        
+        factors.push({
+          type: 'ai-analysis',
+          score: aiRiskScore,
+          description: `AI analysis: ${aiResultData.scamCategory} (confidence: ${aiResultData.confidence}%)`
+        })
+        totalRiskScore += aiRiskScore
+
+        // Add specific AI indicators as factors
+        aiResultData.primaryRisks.slice(0, 3).forEach((risk, index) => {
+          const indicatorWeight = 0.1 * (3 - index) / 3 // Decreasing weight for additional risks
+          factors.push({
+            type: `ai-indicator-${index}`,
+            score: indicatorWeight,
+            description: `AI detected: ${risk}`
+          })
+          totalRiskScore += indicatorWeight
+        })
+
+        logger.info('AI URL analysis completed', {
+          url: sanitizeForLogging(analysis.final),
+          aiRiskScore: aiResultData.riskScore,
+          aiConfidence: aiResultData.confidence,
+          aiCategory: aiResultData.scamCategory,
+          aiWeight: aiRiskScore,
+          fromCache: aiResult.fromCache
+        })
+      } else {
+        // AI analysis failed, add fallback risk factor
+        aiAnalysis = {
+          riskScore: 0,
+          confidence: 0,
+          scamCategory: 'unknown',
+          primaryRisks: [],
+          indicators: [],
+          analysis: null,
+          fromCache: false,
+          error: aiResult.error?.message || 'AI analysis failed'
+        }
+        
+        factors.push({
+          type: 'ai-unavailable',
+          score: 0.05, // Minimal risk when AI analysis fails
+          description: 'AI-powered risk analysis was not available'
+        })
+        totalRiskScore += 0.05
+
+        logger.warn('AI URL analysis failed', {
+          url: sanitizeForLogging(analysis.final),
+          error: new Error(aiResult.error?.message || 'AI analysis failed')
+        })
+      }
+    } catch (error: unknown) {
+      // Handle unexpected AI errors
+      aiAnalysis = {
+        riskScore: 0,
+        confidence: 0,
+        scamCategory: 'unknown',
+        primaryRisks: [],
+        indicators: [],
+        analysis: null,
+        fromCache: false,
+        error: error instanceof Error ? error.message : 'Unexpected AI analysis error'
+      }
+      
+      logger.warn('AI URL analysis error', {
+        url: sanitizeForLogging(analysis.final),
+        error: error as Error
+      })
+      
+      factors.push({
+        type: 'ai-error',
+        score: 0.02, // Very minimal risk for system errors
+        description: 'AI analysis encountered an error'
+      })
+      totalRiskScore += 0.02
+    }
+  } else if (!defaultAIURLAnalyzer.isAvailable()) {
+    // AI analysis is disabled or not configured
+    aiAnalysis = {
+      riskScore: 0,
+      confidence: 0,
+      scamCategory: 'unknown',
+      primaryRisks: [],
+      indicators: [],
+      analysis: null,
+      fromCache: false,
+      error: 'AI analysis is disabled or not configured'
+    }
+
+    logger.debug('AI URL analysis skipped', {
+      url: sanitizeForLogging(analysis.final),
+      reason: 'AI analysis not available'
+    })
+  }
   
   // Domain analysis factor
   if (parsed) {
@@ -544,7 +702,7 @@ async function generateAnalysisWithAll(analysis: URLAnalysisResult): Promise<Ana
   }
   
   // Generate explanation
-  const explanation = generateExplanation(riskLevel, factors, analysis, domainAge, sslCertificate, reputation)
+  const explanation = generateExplanation(riskLevel, factors, analysis, domainAge, sslCertificate, reputation, aiAnalysis)
   
   return {
     url: analysis.final,
@@ -556,6 +714,7 @@ async function generateAnalysisWithAll(analysis: URLAnalysisResult): Promise<Ana
     domainAge,
     sslCertificate,
     reputation,
+    aiAnalysis,
   }
 }
 
@@ -565,7 +724,8 @@ function generateExplanation(
   analysis: URLAnalysisResult,
   domainAge?: AnalysisResult['domainAge'],
   sslCertificate?: AnalysisResult['sslCertificate'],
-  reputation?: AnalysisResult['reputation']
+  reputation?: AnalysisResult['reputation'],
+  aiAnalysis?: AnalysisResult['aiAnalysis']
 ): string {
   const positiveFactors = factors.filter(f => f.score === 0)
   const negativeFactors = factors.filter(f => f.score > 0)
@@ -649,6 +809,29 @@ function generateExplanation(
   } else if (reputation?.error) {
     explanation += 'URL reputation analysis was not available from Google Safe Browsing. '
   }
+
+  // Add AI analysis context
+  if (aiAnalysis?.analysis && aiAnalysis.analysis.confidence > 50) {
+    if (aiAnalysis.scamCategory !== 'legitimate') {
+      explanation += `AI analysis identified this as a potential ${aiAnalysis.scamCategory.replace('_', ' ')} scam with ${aiAnalysis.confidence}% confidence. `
+      
+      if (aiAnalysis.primaryRisks.length > 0) {
+        const primaryRisk = aiAnalysis.primaryRisks[0]
+        explanation += `Primary AI-detected concern: ${primaryRisk.toLowerCase()}. `
+      }
+    } else if (aiAnalysis.confidence > 80) {
+      explanation += `AI analysis confirms this appears to be a legitimate URL with ${aiAnalysis.confidence}% confidence. `
+    }
+    
+    if (aiAnalysis.indicators.length > 0 && aiAnalysis.scamCategory !== 'legitimate') {
+      const topIndicators = aiAnalysis.indicators.slice(0, 2).map(i => i.toLowerCase()).join(' and ')
+      explanation += `AI detected indicators include: ${topIndicators}. `
+    }
+  } else if (aiAnalysis?.analysis && aiAnalysis.analysis.confidence <= 50) {
+    explanation += `AI analysis was inconclusive with ${aiAnalysis.confidence}% confidence. `
+  } else if (aiAnalysis?.error) {
+    explanation += 'AI-powered risk analysis was not available. '
+  }
   
   if (negativeFactors.length > 0) {
     const topRisks = negativeFactors
@@ -707,15 +890,20 @@ export async function GET() {
         'URL sanitization and normalization',
         'Tracking parameter removal',
         'Risk assessment based on URL characteristics',
+        'AI-powered URL risk analysis using OpenAI/Claude',
+        'Scam pattern detection (financial, phishing, e-commerce)',
+        'URL structure analysis for suspicious patterns',
         'Domain age analysis via WHOIS data',
         'SSL/TLS certificate security analysis',
         'Google Safe Browsing API integration for threat detection',
         'Malware, phishing, and unwanted software detection',
         'Authoritative reputation scoring with 24-hour caching',
         'Cached WHOIS lookups for performance',
+        'AI response caching for cost optimization',
         'Domain registration pattern analysis',
         'Registrar reputation scoring',
         'Privacy protection detection',
+        'Multi-factor scoring algorithm with AI integration',
         'Detailed logging and error reporting',
       ],
       security: {
