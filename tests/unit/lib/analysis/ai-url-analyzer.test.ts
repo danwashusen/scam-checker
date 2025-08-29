@@ -246,7 +246,7 @@ describe('AIURLAnalyzer', () => {
       // This test verifies the method signature and basic structure
       // Actual functionality is tested in integration tests
       expect(typeof analyzer.analyzeURL).toBe('function')
-      expect(analyzer.analyzeURL.length).toBe(3) // url, parsedUrl, technicalContext
+      expect(analyzer.analyzeURL.length).toBe(5) // url, parsedUrl, technicalContext, userId?, forcePromptVersion?
     })
   })
 
@@ -272,6 +272,197 @@ describe('AIURLAnalyzer', () => {
       expect(typeof analyzer.analyzeURL).toBe('function')
       expect(typeof analyzer.clearCache).toBe('function')
       expect(typeof analyzer.cleanupCache).toBe('function')
+    })
+  })
+
+  describe('Enhanced Features (v2.0)', () => {
+    const mockParsedUrl: ParsedURL = {
+      original: 'https://payp4l.com/login.php',
+      protocol: 'https:',
+      hostname: 'payp4l.com',
+      domain: 'payp4l.com',
+      subdomain: '',
+      pathname: '/login.php',
+      search: '?redirect=evil.com',
+      searchParams: { redirect: 'evil.com' },
+      hash: '',
+      isIP: false,
+      isIPv4: false,
+      isIPv6: false,
+      port: undefined,
+      components: {
+        domainParts: ['payp4l', 'com'],
+        pathParts: ['login.php'],
+        queryParams: [{ key: 'redirect', value: 'evil.com' }]
+      }
+    }
+
+    const mockTechnicalContext = {
+      urlStructure: {
+        isIP: false,
+        subdomain: '',
+        pathDepth: 1,
+        queryParamCount: 1,
+        hasHttps: true
+      },
+      domainAge: {
+        ageInDays: 1,
+        registrationDate: '2024-01-14',
+        registrar: 'Suspicious Registrar'
+      },
+      reputation: {
+        isClean: false,
+        riskLevel: 'high' as const,
+        threatCount: 2,
+        threatTypes: ['phishing', 'typosquatting']
+      }
+    }
+
+    it('should include pattern analysis in enhanced analysis', async () => {
+      const analyzer = new AIURLAnalyzer()
+      
+      if (analyzer.isAvailable()) {
+        const result = await analyzer.analyzeURL(
+          'https://payp4l.com/login.php',
+          mockParsedUrl,
+          mockTechnicalContext
+        )
+
+        if (result.success && result.data) {
+          expect(result.data.metadata.patternAnalysis).toBeDefined()
+          expect(result.data.metadata.patternAnalysis?.detectedPatterns).toBeDefined()
+          expect(result.data.indicators.length).toBeGreaterThan(0)
+        }
+      }
+    })
+
+    it('should support prompt version selection', async () => {
+      const analyzer = new AIURLAnalyzer()
+      
+      if (analyzer.isAvailable()) {
+        const result = await analyzer.analyzeURLWithVersion(
+          'https://test.com',
+          mockParsedUrl,
+          mockTechnicalContext,
+          'v2.0'
+        )
+
+        if (result.success && result.data) {
+          expect(result.data.metadata.promptSelection).toBeDefined()
+          expect(result.data.metadata.promptSelection?.versionId).toBe('v2.0')
+        }
+      }
+    })
+
+    it('should track prompt performance statistics', () => {
+      const analyzer = new AIURLAnalyzer()
+      const stats = analyzer.getPromptPerformanceStats()
+      
+      expect(Array.isArray(stats)).toBe(true)
+      expect(stats.length).toBeGreaterThan(0)
+      
+      const v2Stats = stats.find(s => s.versionId === 'v2.0')
+      expect(v2Stats).toBeDefined()
+      expect(v2Stats?.name).toBe('Enhanced URL Analysis v2.0')
+    })
+
+    it('should maintain prompt selection history', async () => {
+      const analyzer = new AIURLAnalyzer()
+      
+      if (analyzer.isAvailable()) {
+        await analyzer.analyzeURL(
+          'https://test.com',
+          mockParsedUrl,
+          mockTechnicalContext,
+          'test-user'
+        )
+
+        const history = analyzer.getPromptSelectionHistory()
+        expect(Array.isArray(history)).toBe(true)
+        expect(history.length).toBeGreaterThan(0)
+        
+        const lastSelection = history[history.length - 1]
+        expect(lastSelection).toHaveProperty('version')
+        expect(lastSelection).toHaveProperty('prompt')
+        expect(lastSelection).toHaveProperty('isExperiment')
+        expect(lastSelection).toHaveProperty('selectionReason')
+      }
+    })
+
+    it('should generate enhanced cache keys with pattern analysis', async () => {
+      const analyzer = new AIURLAnalyzer()
+      
+      if (analyzer.isAvailable()) {
+        // Test that different URLs with different patterns generate different cache keys
+        await analyzer.analyzeURL(
+          'https://payp4l.com',
+          mockParsedUrl,
+          mockTechnicalContext
+        )
+
+        const legitimateUrl = {
+          ...mockParsedUrl,
+          original: 'https://github.com',
+          domain: 'github.com',
+          hostname: 'github.com',
+          pathname: '/'
+        }
+
+        await analyzer.analyzeURL(
+          'https://github.com',
+          legitimateUrl,
+          {
+            ...mockTechnicalContext,
+            reputation: {
+              isClean: true,
+              riskLevel: 'low',
+              threatCount: 0,
+              threatTypes: []
+            }
+          }
+        )
+
+        // Cache should have been called with different keys
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const cacheManager = require('../../../../src/lib/cache/cache-manager').CacheManager
+        const setMock = cacheManager.mock.results[0].value.set
+        
+        if (setMock.mock.calls.length >= 2) {
+          // Cache keys should be different due to different pattern analysis
+          expect(setMock.mock.calls[0]).not.toEqual(setMock.mock.calls[1])
+        }
+      }
+    })
+
+    it('should handle A/B testing scenarios', async () => {
+      const analyzer = new AIURLAnalyzer()
+      
+      if (analyzer.isAvailable()) {
+        // Test consistent user selection
+        const user1Result1 = await analyzer.analyzeURL(
+          'https://test.com',
+          mockParsedUrl,
+          mockTechnicalContext,
+          'consistent-user-1'
+        )
+
+        const user1Result2 = await analyzer.analyzeURL(
+          'https://test.com',
+          mockParsedUrl,
+          mockTechnicalContext,
+          'consistent-user-1'
+        )
+
+        if (user1Result1.success && user1Result2.success) {
+          const selectionHistory = analyzer.getPromptSelectionHistory()
+          
+          // Same user should get consistent prompt version
+          const lastTwoSelections = selectionHistory.slice(-2)
+          if (lastTwoSelections.length === 2) {
+            expect(lastTwoSelections[0].version.id).toBe(lastTwoSelections[1].version.id)
+          }
+        }
+      }
     })
   })
 })

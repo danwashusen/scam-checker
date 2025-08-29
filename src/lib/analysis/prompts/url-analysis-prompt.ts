@@ -1,18 +1,18 @@
 /**
- * URL Analysis Prompt Template v1.0
- * Basic prompt for AI-powered URL risk analysis
- * Note: This is intentionally NOT optimized - will be refined later
+ * URL Analysis Prompt Template v2.0
+ * Enhanced prompt for AI-powered URL risk analysis with improved accuracy
+ * Optimized based on scam pattern analysis and false positive reduction
  */
 
 import type { AIAnalysisRequest, AIPromptConfig, TechnicalAnalysisContext } from '../../../types/ai'
 
-export const URL_ANALYSIS_PROMPT_VERSION = '1.0'
+export const URL_ANALYSIS_PROMPT_VERSION = '2.0'
 
 /**
  * Generate system prompt for URL analysis
  */
 export function createUrlAnalysisPrompt(request: AIAnalysisRequest): string {
-  const systemPrompt = `You are an expert cybersecurity analyst specializing in URL-based scam detection. Analyze the provided URL for scam likelihood and risk patterns.
+  const systemPrompt = `You are an expert cybersecurity analyst specializing in URL-based scam detection. Your task is to analyze URLs for scam likelihood using pattern recognition and technical indicators.
 
 **INPUT DATA:**
 URL: ${request.url}
@@ -22,25 +22,39 @@ Parameters: ${JSON.stringify(request.parameters)}
 Technical Context: ${formatTechnicalContext(request.technicalContext)}
 
 **ANALYSIS FRAMEWORK:**
-Evaluate the URL across these dimensions:
+Evaluate the URL systematically across these weighted dimensions:
 
-1. **Domain Analysis:**
-   - Homograph/typosquatting attacks
-   - Suspicious TLD usage
-   - Domain age and reputation indicators
-   - Brand impersonation patterns
+1. **Domain Trust Analysis (High Weight):**
+   - Exact/near matches to known brands (paypal -> payp4l, amazon -> amaz0n)
+   - Suspicious TLD usage (.tk, .ml, .ga, .cf for non-legitimate services)
+   - Domain age correlation with claimed legitimacy
+   - Registrar reputation and privacy protection patterns
+   - Subdomain abuse (secure-paypal.suspicious-domain.com)
 
-2. **URL Structure Analysis:**
-   - Suspicious path patterns
-   - Parameter manipulation indicators
-   - Redirect/shortener usage
-   - Obfuscation techniques
+2. **URL Structure Red Flags (High Weight):**
+   - Login/credential harvesting patterns (login, signin, verify, update, confirm in paths)
+   - Urgency indicators (urgent, expire, suspend, limited-time)
+   - Obfuscation techniques (excessive URL encoding, IP addresses, URL shorteners)
+   - Parameter injection patterns (redirect, continue, return_url pointing to external domains)
 
-3. **Scam Category Assessment:**
-   - Financial scams (crypto, investment, loans)
-   - Phishing attempts (banking, social, government)
-   - E-commerce fraud (fake stores, deals)
-   - Social engineering patterns
+3. **Scam Pattern Matching (Critical):**
+   - Financial: crypto-mining, investment schemes, fake banking, loan scams
+   - Phishing: credential harvesting, account verification, security alerts
+   - E-commerce: too-good-to-be-true deals, missing contact info, fake stores
+   - Social Engineering: authority impersonation, fear/urgency tactics, prize claims
+
+4. **Legitimacy Indicators (False Positive Prevention):**
+   - Well-established domains (>2 years old) with clean reputation
+   - Official company domains and verified subdomains
+   - Educational, government, and established news domains
+   - Major platform domains (github.com, stackoverflow.com, etc.)
+
+**SCORING GUIDELINES:**
+- 0-20: Legitimate services with strong trust indicators
+- 21-40: Likely legitimate but with some suspicious elements
+- 41-60: Uncertain/neutral - requires additional investigation
+- 61-80: High probability scam with multiple red flags
+- 81-100: Definitive scam patterns with high confidence
 
 **OUTPUT REQUIREMENTS:**
 Respond ONLY with valid JSON in this exact format:
@@ -54,11 +68,11 @@ Respond ONLY with valid JSON in this exact format:
 }
 
 **CRITICAL INSTRUCTIONS:**
-- Base analysis primarily on URL structure and domain patterns
-- Consider technical context from previous analysis stages
-- Prioritize high-confidence assessments over uncertain scores
-- Flag legitimate services accurately to minimize false positives
-- Provide specific, actionable indicators in your response`
+- Be conservative with legitimate services - err on the side of false negatives over false positives
+- Weight domain age and reputation heavily for new domains
+- Consider technical context indicators as strong supporting evidence
+- Provide specific, observable indicators rather than generic assessments
+- Use confidence scores to reflect uncertainty - lower confidence for borderline cases`
 
   return systemPrompt
 }
@@ -174,21 +188,65 @@ export function getPromptConfig(): AIPromptConfig {
 }
 
 /**
- * Extract examples for testing (basic set)
+ * Extract examples for testing (comprehensive set for v2.0)
  */
 export function getTestExamples() {
   return {
     scamUrls: [
+      // Financial scams
       'http://secure-banking-update.com/login.php?redirect=paypal',
+      'https://crypto-investment-2024.ml/signup?ref=urgent',
+      'https://binance-rewards.tk/claim-bonus.html',
+      'http://payp4l-verification.com/secure/login',
+      
+      // Phishing attempts
       'https://amazon-prime-renewal.tk/verify.html',
-      'http://crypto-investment-2024.ml/signup?ref=urgent',
       'https://microsoft-security-alert.cf/fix-now.exe',
+      'http://gmai1.com/signin?continue=https://accounts.google.com',
+      'https://secure-apple-id.ml/unlock-account',
+      
+      // E-commerce fraud
+      'https://luxury-deals-90off.ga/iphone-sale',
+      'http://nike-clearance-outlet.tk/shoes',
+      'https://rolex-direct-factory.cf/watches',
+      
+      // Social engineering
+      'http://you-won-lottery.ml/claim?prize=1000000',
+      'https://urgent-security-notice.tk/verify-now',
+      'http://government-refund.ga/claim-tax-return',
     ],
     legitimateUrls: [
+      // Established tech platforms
       'https://github.com/microsoft/vscode',
-      'https://www.amazon.com/dp/B08N5WRWNW',
-      'https://docs.google.com/document/d/abc123',
       'https://stackoverflow.com/questions/12345678',
+      'https://docs.google.com/document/d/abc123',
+      'https://www.npmjs.com/package/react',
+      
+      // E-commerce and services
+      'https://www.amazon.com/dp/B08N5WRWNW',
+      'https://support.apple.com/en-us/HT201236',
+      'https://developer.mozilla.org/en-US/docs/Web',
+      'https://www.paypal.com/us/signin',
+      
+      // Educational and news
+      'https://en.wikipedia.org/wiki/Machine_learning',
+      'https://www.bbc.com/news/technology',
+      'https://www.mit.edu/academics/',
+      'https://www.reuters.com/business/',
+      
+      // Government and official
+      'https://www.irs.gov/individuals/free-tax-return-preparation',
+      'https://www.usa.gov/government-benefits',
     ],
+    borderlineCases: [
+      // Recent legitimate domains that might trigger false positives
+      'https://newstartup2024.com/about',
+      'https://crypto-news-daily.net/articles',
+      'https://secure-login.newbank.org/signin',
+      
+      // Legitimate but suspicious patterns
+      'https://accounts.microsoft.com/recovery?continue=outlook.com',
+      'https://signin.aws.amazon.com/oauth?redirect_uri=console',
+    ]
   }
 }

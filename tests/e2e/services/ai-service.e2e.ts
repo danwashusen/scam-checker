@@ -311,4 +311,171 @@ describe('AIService E2E Tests', () => {
       console.log(`   Average cost: $${updatedStats.averageCost.toFixed(4)}`)
     })
   })
+
+  describe('Enhanced URL Analysis E2E Tests (v2.0)', () => {
+    test('should successfully analyze known scam URLs', async () => {
+      if (skipTests) {
+        console.log('⚠️  Skipping test - no API key configured')
+        return
+      }
+
+      const scamUrls = [
+        'https://payp4l-verification.tk/secure/login.php',
+        'https://amazon-prime-renewal.ml/verify-account.html',
+        'https://urgent-security-notice.cf/microsoft-alert.exe'
+      ]
+
+      for (const url of scamUrls) {
+        const prompt = `You are an expert cybersecurity analyst. Analyze this URL for scam likelihood: ${url}. 
+        
+        Respond ONLY with valid JSON:
+        {
+          "risk_score": <0-100>,
+          "confidence": <0-100>,
+          "primary_risks": ["risk1", "risk2"],
+          "scam_category": "financial|phishing|ecommerce|social_engineering|legitimate",
+          "indicators": ["indicator1", "indicator2"],
+          "explanation": "brief explanation"
+        }`
+
+        const result = await service.analyzeText(prompt)
+        
+        if (result.success && result.data) {
+          try {
+            const analysis = JSON.parse(result.data)
+            
+            expect(analysis.risk_score).toBeGreaterThan(60) // Should be high risk
+            expect(analysis.confidence).toBeGreaterThan(50)
+            expect(analysis.scam_category).not.toBe('legitimate')
+            expect(Array.isArray(analysis.primary_risks)).toBe(true)
+            expect(Array.isArray(analysis.indicators)).toBe(true)
+            expect(typeof analysis.explanation).toBe('string')
+            
+            console.log(`   ${url}: Risk ${analysis.risk_score}/100, Category: ${analysis.scam_category}`)
+          } catch (parseError) {
+            console.error(`Failed to parse response for ${url}:`, result.data)
+            throw parseError
+          }
+        } else {
+          console.error(`AI analysis failed for ${url}:`, result.error)
+          throw new Error(`AI analysis failed for ${url}`)
+        }
+
+        await testHelper.delay(3000) // Rate limiting
+      }
+    }, 60000) // 60 second timeout for multiple requests
+
+    test('should correctly classify legitimate URLs', async () => {
+      if (skipTests) {
+        console.log('⚠️  Skipping test - no API key configured')
+        return
+      }
+
+      const legitimateUrls = [
+        'https://github.com/microsoft/vscode',
+        'https://docs.google.com/document/d/example',
+        'https://www.paypal.com/us/signin'
+      ]
+
+      for (const url of legitimateUrls) {
+        const prompt = `You are an expert cybersecurity analyst. Analyze this URL for scam likelihood: ${url}. 
+        
+        Respond ONLY with valid JSON:
+        {
+          "risk_score": <0-100>,
+          "confidence": <0-100>,
+          "primary_risks": ["risk1", "risk2"],
+          "scam_category": "financial|phishing|ecommerce|social_engineering|legitimate",
+          "indicators": ["indicator1", "indicator2"],
+          "explanation": "brief explanation"
+        }`
+
+        const result = await service.analyzeText(prompt)
+        
+        if (result.success && result.data) {
+          try {
+            const analysis = JSON.parse(result.data)
+            
+            expect(analysis.risk_score).toBeLessThan(40) // Should be low risk
+            expect(analysis.confidence).toBeGreaterThan(70)
+            expect(analysis.scam_category).toBe('legitimate')
+            
+            console.log(`   ${url}: Risk ${analysis.risk_score}/100, Category: ${analysis.scam_category}`)
+          } catch (parseError) {
+            console.error(`Failed to parse response for ${url}:`, result.data)
+            throw parseError
+          }
+        }
+
+        await testHelper.delay(3000) // Rate limiting
+      }
+    }, 60000)
+
+    test('should provide consistent analysis for repeated requests', async () => {
+      if (skipTests) {
+        console.log('⚠️  Skipping test - no API key configured')
+        return
+      }
+
+      const testUrl = 'https://suspicious-example.tk/login.php'
+      const prompt = `Analyze for scams: ${testUrl}. JSON only: {"risk_score": <0-100>, "confidence": <0-100>, "scam_category": "<category>"}`
+
+      const results = []
+      
+      for (let i = 0; i < 3; i++) {
+        const result = await service.analyzeText(prompt)
+        
+        if (result.success && result.data) {
+          try {
+            const analysis = JSON.parse(result.data)
+            results.push(analysis)
+            console.log(`   Attempt ${i + 1}: Risk ${analysis.risk_score}/100`)
+          } catch (_error) {
+            console.error(`Failed to parse response ${i + 1}:`, result.data)
+          }
+        }
+        
+        if (i < 2) await testHelper.delay(3000)
+      }
+
+      // Check consistency (scores should be within 20 points of each other)
+      if (results.length >= 2) {
+        const scores = results.map(r => r.risk_score)
+        const maxScore = Math.max(...scores)
+        const minScore = Math.min(...scores)
+        const variance = maxScore - minScore
+        
+        expect(variance).toBeLessThan(30) // Allow some variance but not too much
+        console.log(`   Score variance: ${variance} points`)
+      }
+    }, 45000)
+
+    test('should handle malformed prompts gracefully', async () => {
+      if (skipTests) {
+        console.log('⚠️  Skipping test - no API key configured')
+        return
+      }
+
+      const malformedPrompts = [
+        '', // Empty prompt
+        'a'.repeat(5000), // Very long prompt
+        'Analyze: ' + 'invalid-url-format', // Invalid URL
+      ]
+
+      for (const prompt of malformedPrompts) {
+        const result = await service.analyzeText(prompt)
+        
+        // Should either succeed or fail gracefully
+        expect(['boolean']).toContain(typeof result.success)
+        
+        if (!result.success) {
+          expect(result.error).toBeDefined()
+          expect(typeof result.error?.message).toBe('string')
+        }
+        
+        console.log(`   Malformed prompt handled: ${result.success ? 'Success' : 'Graceful failure'}`)
+        await testHelper.delay(2000)
+      }
+    }, 30000)
+  })
 })

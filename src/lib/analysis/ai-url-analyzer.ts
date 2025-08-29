@@ -6,11 +6,12 @@
 import { CacheManager } from '../cache/cache-manager'
 import { AIService, createAIService } from './ai-service'
 import {
-  createUrlAnalysisPrompt,
   generateCacheKey,
   validateAIResponse,
   URL_ANALYSIS_PROMPT_VERSION,
 } from './prompts/url-analysis-prompt'
+import { createVersionedPrompt, defaultPromptManager, type PromptSelectionResult } from './prompts/prompt-manager'
+import { analyzeURLPatterns, type URLPatternAnalysis } from './url-pattern-detector'
 import { loadAIConfig, createServiceOptions, validateAIConfig } from '../../config/ai'
 import { Logger } from '../logger'
 import type {
@@ -38,6 +39,7 @@ export class AIURLAnalyzer {
   private cache: CacheManager<AIAnalysisResult>
   private config: ReturnType<typeof loadAIConfig>
   private isEnabled: boolean = false
+  private promptSelectionHistory: PromptSelectionResult[] = []
 
   constructor() {
     this.config = loadAIConfig()
@@ -80,12 +82,14 @@ export class AIURLAnalyzer {
   }
 
   /**
-   * Analyze URL with AI and return structured risk assessment
+   * Analyze URL with AI and return structured risk assessment (enhanced version)
    */
   async analyzeURL(
     url: string,
     parsedUrl: ParsedURL,
-    technicalContext: TechnicalAnalysisContext
+    technicalContext: TechnicalAnalysisContext,
+    userId?: string,
+    forcePromptVersion?: string
   ): Promise<AIServiceResult<AIAnalysisResult>> {
     const startTime = Date.now()
 
@@ -104,11 +108,18 @@ export class AIURLAnalyzer {
         }
       }
 
-      // Prepare analysis request
-      const analysisRequest = this.prepareAnalysisRequest(url, parsedUrl, technicalContext)
+      // Perform URL pattern analysis first
+      const patternAnalysis = analyzeURLPatterns(url, parsedUrl.domain, parsedUrl.pathname)
+
+      // Prepare enhanced analysis request with pattern analysis
+      const analysisRequest = this.prepareEnhancedAnalysisRequest(url, parsedUrl, technicalContext, patternAnalysis)
       
-      // Generate cache key
-      const cacheKey = generateCacheKey(analysisRequest)
+      // Select prompt version (supports A/B testing)
+      const promptSelection = createVersionedPrompt(analysisRequest, userId, forcePromptVersion)
+      this.recordPromptSelection(promptSelection)
+
+      // Generate cache key based on prompt version and request
+      const cacheKey = this.generateEnhancedCacheKey(analysisRequest, promptSelection.version.id)
 
       // Try to get from cache first
       if (this.config.cache.enabled) {
@@ -117,7 +128,14 @@ export class AIURLAnalyzer {
           logger.info('AI analysis cache hit', {
             url: this.sanitizeUrlForLogging(url),
             cacheKey,
+            promptVersion: promptSelection.version.version,
             age: Date.now() - new Date(cachedResult.metadata.timestamp).getTime(),
+          })
+
+          // Update prompt performance metrics for cache hit
+          this.updatePromptPerformance(promptSelection.version.id, {
+            fromCache: true,
+            processingTime: Date.now() - startTime
           })
 
           return {
@@ -129,8 +147,8 @@ export class AIURLAnalyzer {
         }
       }
 
-      // Generate prompt
-      const prompt = createUrlAnalysisPrompt(analysisRequest)
+      // Use the selected prompt
+      const prompt = promptSelection.prompt
 
       // Call AI service
       const aiResult = await this.aiService!.analyzeText(prompt)
@@ -150,22 +168,38 @@ export class AIURLAnalyzer {
         }
       }
 
-      // Parse and validate AI response
-      const analysisResult = this.parseAIResponse(aiResult.data, aiResult.metadata)
+      // Parse and validate AI response with enhanced context
+      const analysisResult = this.parseEnhancedAIResponse(
+        aiResult.data, 
+        aiResult.metadata, 
+        promptSelection,
+        patternAnalysis
+      )
 
       // Cache the result
       if (this.config.cache.enabled && analysisResult.success) {
         await this.cache.set(cacheKey, analysisResult.data!)
       }
 
+      // Update prompt performance metrics
+      this.updatePromptPerformance(promptSelection.version.id, {
+        fromCache: false,
+        processingTime: Date.now() - startTime,
+        confidence: analysisResult.data?.confidence || 0,
+        cost: aiResult.metadata.cost || 0
+      })
+
       logger.info('AI URL analysis completed', {
         url: this.sanitizeUrlForLogging(url),
+        promptVersion: promptSelection.version.version,
         riskScore: analysisResult.data?.riskScore,
         confidence: analysisResult.data?.confidence,
         scamCategory: analysisResult.data?.scamCategory,
+        patternScore: patternAnalysis.suspiciousScore,
         processingTime: Date.now() - startTime,
         tokenUsage: aiResult.metadata.tokenUsage,
         cost: aiResult.metadata.cost,
+        isExperiment: promptSelection.isExperiment
       })
 
       return analysisResult
@@ -367,6 +401,187 @@ export class AIURLAnalyzer {
    */
   async cleanupCache(): Promise<number> {
     return await this.cache.cleanup()
+  }
+
+  /**
+   * Prepare enhanced analysis request with pattern analysis
+   */
+  private prepareEnhancedAnalysisRequest(
+    url: string,
+    parsedUrl: ParsedURL,
+    technicalContext: TechnicalAnalysisContext,
+    patternAnalysis: URLPatternAnalysis
+  ): AIAnalysisRequest & { patternAnalysis: URLPatternAnalysis } {
+    const baseRequest = this.prepareAnalysisRequest(url, parsedUrl, technicalContext)
+    return {
+      ...baseRequest,
+      patternAnalysis
+    }
+  }
+
+  /**
+   * Generate enhanced cache key including prompt version
+   */
+  private generateEnhancedCacheKey(
+    request: AIAnalysisRequest & { patternAnalysis: URLPatternAnalysis },
+    promptVersionId: string
+  ): string {
+    const baseKey = generateCacheKey(request)
+    const patternHash = this.hashPatternAnalysis(request.patternAnalysis)
+    return `${baseKey}:v${promptVersionId}:p${patternHash}`
+  }
+
+  /**
+   * Create simple hash of pattern analysis for cache key
+   */
+  private hashPatternAnalysis(analysis: URLPatternAnalysis): string {
+    const elements = [
+      analysis.isHomograph ? 'h' : '',
+      analysis.isTyposquat ? 't' : '',
+      analysis.hasSuspiciousTLD ? 'tld' : '',
+      analysis.hasPhishingPatterns ? 'phish' : '',
+      analysis.hasObfuscation ? 'obf' : '',
+      analysis.suspiciousScore.toString()
+    ].filter(Boolean)
+    
+    return elements.join('-')
+  }
+
+  /**
+   * Parse AI response with enhanced context
+   */
+  private parseEnhancedAIResponse(
+    responseText: string,
+    metadata: { processingTime: number; tokenUsage?: TokenUsage; cost?: number },
+    promptSelection: PromptSelectionResult,
+    patternAnalysis: URLPatternAnalysis
+  ): AIServiceResult<AIAnalysisResult> {
+    try {
+      // Use existing validation
+      const validation = validateAIResponse(responseText)
+      if (!validation.valid) {
+        return {
+          success: false,
+          data: null,
+          error: {
+            code: 'invalid_response',
+            message: validation.error || 'Invalid AI response format',
+          },
+          fromCache: false,
+          metadata,
+        }
+      }
+
+      // Parse JSON response
+      const rawResponse: AIRawResponse = JSON.parse(responseText)
+
+      // Enhanced analysis result with pattern analysis context
+      const analysisResult: AIAnalysisResult = {
+        riskScore: rawResponse.risk_score,
+        confidence: rawResponse.confidence,
+        primaryRisks: rawResponse.primary_risks,
+        scamCategory: this.mapScamCategory(rawResponse.scam_category),
+        indicators: [...rawResponse.indicators, ...patternAnalysis.detectedPatterns],
+        explanation: rawResponse.explanation,
+        metadata: {
+          timestamp: new Date().toISOString(),
+          promptVersion: promptSelection.version.version,
+          provider: this.config.provider,
+          processingTimeMs: metadata.processingTime,
+          tokenUsage: metadata.tokenUsage,
+          cost: metadata.cost,
+          // Enhanced metadata
+          patternAnalysis: {
+            suspiciousScore: patternAnalysis.suspiciousScore,
+            detectedPatterns: patternAnalysis.detectedPatterns,
+            isHomograph: patternAnalysis.isHomograph,
+            isTyposquat: patternAnalysis.isTyposquat,
+            brandImpersonation: patternAnalysis.brandImpersonation
+          },
+          promptSelection: {
+            versionId: promptSelection.version.id,
+            isExperiment: promptSelection.isExperiment,
+            selectionReason: promptSelection.selectionReason
+          }
+        },
+      }
+
+      return {
+        success: true,
+        data: analysisResult,
+        fromCache: false,
+        metadata,
+      }
+    } catch (error) {
+      return {
+        success: false,
+        data: null,
+        error: {
+          code: 'parse_error',
+          message: `Failed to parse AI response: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        },
+        fromCache: false,
+        metadata,
+      }
+    }
+  }
+
+  /**
+   * Record prompt selection for analysis
+   */
+  private recordPromptSelection(selection: PromptSelectionResult): void {
+    this.promptSelectionHistory.push(selection)
+    
+    // Keep only last 100 selections for memory management
+    if (this.promptSelectionHistory.length > 100) {
+      this.promptSelectionHistory.shift()
+    }
+  }
+
+  /**
+   * Update prompt performance metrics
+   */
+  private updatePromptPerformance(
+    versionId: string,
+    metrics: {
+      fromCache: boolean
+      processingTime: number
+      confidence?: number
+      cost?: number
+    }
+  ): void {
+    defaultPromptManager.updatePerformanceMetrics(versionId, {
+      totalRequests: 1,
+      averageProcessingTime: metrics.processingTime,
+      averageConfidence: metrics.confidence || 0,
+      costPerRequest: metrics.cost || 0
+    })
+  }
+
+  /**
+   * Get prompt performance statistics
+   */
+  getPromptPerformanceStats() {
+    return defaultPromptManager.getPerformanceComparison()
+  }
+
+  /**
+   * Get prompt selection history
+   */
+  getPromptSelectionHistory(): PromptSelectionResult[] {
+    return [...this.promptSelectionHistory]
+  }
+
+  /**
+   * Force specific prompt version for testing
+   */
+  async analyzeURLWithVersion(
+    url: string,
+    parsedUrl: ParsedURL,
+    technicalContext: TechnicalAnalysisContext,
+    promptVersionId: string
+  ): Promise<AIServiceResult<AIAnalysisResult>> {
+    return this.analyzeURL(url, parsedUrl, technicalContext, undefined, promptVersionId)
   }
 }
 

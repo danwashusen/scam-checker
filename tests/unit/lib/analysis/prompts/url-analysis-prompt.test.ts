@@ -81,9 +81,9 @@ describe('URL Analysis Prompt', () => {
     it('should include analysis framework sections', () => {
       const prompt = createUrlAnalysisPrompt(mockAnalysisRequest)
 
-      expect(prompt).toContain('Domain Analysis')
-      expect(prompt).toContain('URL Structure Analysis')
-      expect(prompt).toContain('Scam Category Assessment')
+      expect(prompt).toContain('Domain Trust Analysis')
+      expect(prompt).toContain('URL Structure Red Flags')
+      expect(prompt).toContain('Scam Pattern Matching')
       expect(prompt).toContain('financial|phishing|ecommerce|social_engineering|legitimate')
     })
 
@@ -102,7 +102,7 @@ describe('URL Analysis Prompt', () => {
 
       const prompt = createUrlAnalysisPrompt(requestWithoutContext)
 
-      expect(prompt).toContain('URL Structure Analysis')
+      expect(prompt).toContain('URL Structure Red Flags')
       expect(prompt).toContain('HTTPS: true')
       expect(prompt).not.toContain('Domain Age:')
       expect(prompt).not.toContain('SSL:')
@@ -317,7 +317,8 @@ describe('URL Analysis Prompt', () => {
       // Check that legitimate URLs look trustworthy
       examples.legitimateUrls.forEach(url => {
         expect(url).toMatch(/^https?:\/\//)
-        expect(url).toMatch(/(github|amazon|google|stackoverflow)/)
+        // Verify it's from a known legitimate domain
+        expect(url).toMatch(/(github|amazon|google|stackoverflow|npmjs|mozilla|apple|paypal|wikipedia|bbc|mit|reuters|irs|usa\.gov)/)
       })
     })
   })

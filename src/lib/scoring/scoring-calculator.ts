@@ -712,9 +712,17 @@ export class ScoringCalculator {
   /**
    * Generate description for AI factor
    */
-  private generateAIDescription(analysis: { scamCategory?: string; riskScore?: number }): string {
+  private generateAIDescription(analysis: { scamCategory?: string; riskScore?: number; metadata?: { patternAnalysis?: { detectedPatterns?: string[] } } }): string {
     const category = analysis.scamCategory || 'unknown'
     const score = analysis.riskScore || 50
+    
+    // Include pattern analysis info if available
+    const patternInfo = analysis.metadata?.patternAnalysis
+    if (patternInfo?.detectedPatterns && patternInfo.detectedPatterns.length > 0) {
+      const topPatterns = patternInfo.detectedPatterns.slice(0, 2).join(', ')
+      return `AI analysis: ${category} category (score: ${score}, patterns: ${topPatterns})`
+    }
+    
     return `AI analysis: ${category} category (score: ${score})`
   }
 

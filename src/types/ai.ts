@@ -20,6 +20,22 @@ export interface AIAnalysisMetadata {
   processingTimeMs: number
   tokenUsage?: TokenUsage
   cost?: number
+  // Enhanced metadata for v2.0
+  patternAnalysis?: {
+    suspiciousScore: number
+    detectedPatterns: string[]
+    isHomograph: boolean
+    isTyposquat: boolean
+    brandImpersonation?: {
+      likelyTarget: string
+      confidence: number
+    }
+  }
+  promptSelection?: {
+    versionId: string
+    isExperiment: boolean
+    selectionReason: string
+  }
 }
 
 export interface TokenUsage {
