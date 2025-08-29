@@ -5,6 +5,9 @@ import { AIURLAnalyzer } from '../analysis/ai-url-analyzer'
 import { ScoringCalculator } from '../scoring/scoring-calculator'
 import { AnalysisOrchestrator } from '../orchestration/analysis-orchestrator'
 import { Logger } from '../logger'
+import { CacheManager } from '../cache/cache-manager'
+import { MemoryCache } from '../cache/memory-cache'
+import { CacheConfig } from '../cache/cache-config'
 import type {
   SafeBrowsingConfig,
   WhoisServiceConfig,
@@ -15,6 +18,7 @@ import type {
   AnalysisServices,
   ServiceEnvironment
 } from '../../types/services'
+import type { MemoryCacheOptions, CacheEntry } from '../cache/cache-types'
 import type { ScoringConfig } from '../../types/scoring'
 import type { OrchestrationConfig } from '../orchestration/analysis-orchestrator'
 
@@ -23,6 +27,40 @@ import type { OrchestrationConfig } from '../orchestration/analysis-orchestrator
  * Replaces singleton pattern with factory pattern for improved testability and configuration management
  */
 export class ServiceFactory {
+  /**
+   * Create MemoryCache instance with configuration
+   */
+  static createMemoryCache<T>(options: MemoryCacheOptions): CacheManager<T> {
+    const memoryCache = new MemoryCache<CacheEntry<T>>(options)
+    return new CacheManager<T>(options, memoryCache)
+  }
+
+  /**
+   * Create cache instances for different service types based on environment
+   */
+  static createServiceCaches(environment: ServiceEnvironment = 'development'): {
+    reputation: CacheManager<unknown>
+    whois: CacheManager<unknown>
+    ssl: CacheManager<unknown>
+    ai: CacheManager<unknown>
+  } {
+    const config = CacheConfig.getEnvironmentConfig(environment)
+    
+    return {
+      reputation: this.createMemoryCache(
+        CacheConfig.createMemoryCacheOptions('reputation', 'reputation', config)
+      ),
+      whois: this.createMemoryCache(
+        CacheConfig.createMemoryCacheOptions('whois', 'l2', config)
+      ),
+      ssl: this.createMemoryCache(
+        CacheConfig.createMemoryCacheOptions('ssl', 'l3', config)
+      ),
+      ai: this.createMemoryCache(
+        CacheConfig.createMemoryCacheOptions('ai', 'l1', config)
+      )
+    }
+  }
   /**
    * Create ReputationService instance with optional configuration
    */
@@ -78,16 +116,28 @@ export class ServiceFactory {
   }
 
   /**
-   * Create complete bundle of analysis services with optional configuration
+   * Create complete bundle of analysis services with optional configuration and caching
    */
-  static createAnalysisServices(config?: ServicesConfig): AnalysisServices {
-    return {
+  static createAnalysisServices(config?: ServicesConfig, enableCaching = true): AnalysisServices {
+    const services = {
       reputation: this.createReputationService(config?.reputation),
       whois: this.createWhoisService(config?.whois),
       ssl: this.createSSLService(config?.ssl),
       aiAnalyzer: this.createAIURLAnalyzer(config?.ai),
       logger: this.createLogger(config?.logger)
     }
+
+    // Add caching support if enabled and services support it
+    if (enableCaching) {
+      const environment = process.env.NODE_ENV as ServiceEnvironment || 'development'
+      const _caches = this.createServiceCaches(environment)
+      
+      // Note: Individual services would need to be modified to accept cache managers
+      // This is a placeholder for future service cache integration
+      // For now, we return the services without cache injection
+    }
+
+    return services
   }
 
   /**

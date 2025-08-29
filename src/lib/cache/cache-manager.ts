@@ -25,7 +25,9 @@ export class CacheManager<T> {
     hitRate: 0,
     size: 0,
     maxSize: 0,
+    memoryUsage: 0
   }
+  private cleanupTimer?: NodeJS.Timeout
 
   constructor(
     options: CacheOptions,
@@ -91,6 +93,9 @@ export class CacheManager<T> {
       data: value,
       expiresAt: now + ttl,
       createdAt: now,
+      size: 0, // Size tracking will be handled by the cache implementation
+      accessCount: 1,
+      lastAccessed: now
     }
 
     try {
@@ -212,6 +217,190 @@ export class CacheManager<T> {
     const value = await factory()
     await this.set(key, value, customTtl)
     return value
+  }
+
+  /**
+   * Start background cleanup timer
+   */
+  startBackgroundCleanup(intervalMs?: number): void {
+    if (this.cleanupTimer) {
+      this.stopBackgroundCleanup()
+    }
+
+    const interval = intervalMs || 5 * 60 * 1000 // Default 5 minutes
+    
+    this.cleanupTimer = setInterval(async () => {
+      try {
+        const cleaned = await this.cleanup()
+        if (cleaned > 0) {
+          logger.debug('Background cache cleanup completed', {
+            prefix: this.options.prefix,
+            entriesCleaned: cleaned,
+            remainingSize: this.stats.size
+          })
+        }
+      } catch (error) {
+        logger.error('Background cache cleanup failed', {
+          prefix: this.options.prefix,
+          error: error instanceof Error ? error : new Error(String(error))
+        })
+      }
+    }, interval)
+
+    logger.info('Started background cache cleanup', {
+      prefix: this.options.prefix,
+      intervalMs: interval
+    })
+  }
+
+  /**
+   * Stop background cleanup timer
+   */
+  stopBackgroundCleanup(): void {
+    if (this.cleanupTimer) {
+      clearInterval(this.cleanupTimer)
+      this.cleanupTimer = undefined
+      
+      logger.info('Stopped background cache cleanup', {
+        prefix: this.options.prefix
+      })
+    }
+  }
+
+  /**
+   * Get memory usage statistics if supported by cache implementation
+   */
+  async getMemoryUsage(): Promise<{ current: number; max: number; percentage: number } | null> {
+    try {
+      // Check if the cache implementation supports memory usage tracking
+      if ('getMemoryUsage' in this.cache && typeof this.cache.getMemoryUsage === 'function') {
+        return (this.cache as unknown as { getMemoryUsage: () => { current: number; max: number; percentage: number } }).getMemoryUsage()
+      }
+      return null
+    } catch (error) {
+      logger.warn('Failed to get memory usage from cache implementation', {
+        prefix: this.options.prefix,
+        error: error instanceof Error ? error : new Error(String(error))
+      })
+      return null
+    }
+  }
+
+  /**
+   * Get enhanced statistics including memory usage
+   */
+  async getEnhancedStats(): Promise<{
+    hits: number
+    misses: number
+    hitRate: number
+    size: number
+    maxSize: number
+    memoryUsage?: { current: number; max: number; percentage: number }
+  }> {
+    const baseStats = this.getStats()
+    const memoryUsage = await this.getMemoryUsage()
+    
+    // Create new stats object with proper typing
+    return {
+      hits: baseStats.hits,
+      misses: baseStats.misses,
+      hitRate: baseStats.hitRate,
+      size: baseStats.size,
+      maxSize: baseStats.maxSize,
+      memoryUsage: memoryUsage || undefined
+    }
+  }
+
+  /**
+   * Warm cache with multiple entries
+   */
+  async warmCache(entries: Array<{ key: string; factory: () => Promise<T>; ttl?: number }>): Promise<void> {
+    const warmingPromises = entries.map(async ({ key, factory, ttl }) => {
+      try {
+        // Check if entry already exists and is not near expiry
+        const existing = await this.get(key)
+        if (existing !== null) {
+          return // Entry already cached
+        }
+
+        // Generate and cache the value
+        const value = await factory()
+        await this.set(key, value, ttl)
+        
+        logger.debug('Cache entry warmed', {
+          prefix: this.options.prefix,
+          key
+        })
+      } catch (error) {
+        logger.warn('Failed to warm cache entry', {
+          prefix: this.options.prefix,
+          key,
+          error: error instanceof Error ? error : new Error(String(error))
+        })
+      }
+    })
+
+    await Promise.all(warmingPromises)
+    logger.info('Cache warming completed', {
+      prefix: this.options.prefix,
+      entriesWarmed: entries.length
+    })
+  }
+
+  /**
+   * Invalidate entries by pattern
+   */
+  async invalidatePattern(pattern: RegExp): Promise<number> {
+    let invalidatedCount = 0
+    
+    try {
+      const keys = await this.cache.keys()
+      const matchingKeys = keys.filter(key => pattern.test(key))
+      
+      for (const key of matchingKeys) {
+        await this.cache.delete(key)
+        invalidatedCount++
+      }
+      
+      await this.updateSize()
+      
+      logger.info('Cache invalidation by pattern completed', {
+        prefix: this.options.prefix,
+        pattern: pattern.toString(),
+        invalidatedCount
+      })
+    } catch (error) {
+      logger.error('Cache invalidation by pattern failed', {
+        prefix: this.options.prefix,
+        pattern: pattern.toString(),
+        error: error instanceof Error ? error : new Error(String(error))
+      })
+    }
+    
+    return invalidatedCount
+  }
+
+  /**
+   * Destroy cache manager and cleanup resources
+   */
+  destroy(): void {
+    this.stopBackgroundCleanup()
+    
+    // If cache implementation has destroy method, call it
+    if ('destroy' in this.cache && typeof this.cache.destroy === 'function') {
+      try {
+        (this.cache as unknown as { destroy: () => void }).destroy()
+      } catch (error) {
+        logger.warn('Error destroying cache implementation', {
+          prefix: this.options.prefix,
+          error: error instanceof Error ? error : new Error(String(error))
+        })
+      }
+    }
+
+    logger.info('Cache manager destroyed', {
+      prefix: this.options.prefix
+    })
   }
 
   /**

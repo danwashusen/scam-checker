@@ -2,6 +2,9 @@ export interface CacheEntry<T> {
   data: T
   expiresAt: number
   createdAt: number
+  size: number          // Memory usage estimation
+  accessCount: number   // Hit frequency tracking
+  lastAccessed: number  // LRU tracking
 }
 
 export interface CacheOptions {
@@ -34,4 +37,25 @@ export interface CacheConfig {
   defaultTtl: number
   maxSize: number
   cleanupInterval: number // How often to clean expired entries (ms)
+}
+
+export interface CacheLayerConfig {
+  memory: {
+    maxSizeMB: number
+    evictionThreshold: number
+  }
+  layers: Record<string, {
+    ttl: number
+    maxEntries: number
+  }>
+  warming: {
+    enabled: boolean
+    popularDomains: string[]
+  }
+}
+
+export interface MemoryCacheOptions extends CacheOptions {
+  maxMemoryMB?: number
+  evictionThreshold?: number
+  enableMemoryTracking?: boolean
 }
