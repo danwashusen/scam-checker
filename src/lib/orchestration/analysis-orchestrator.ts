@@ -23,6 +23,8 @@ import { ServiceFactory } from '../services/service-factory'
 import { parseURL } from '../validation/url-parser'
 import { validateURL } from '../validation/url-validator'
 import { Logger } from '../logger'
+import { CacheManager } from '../cache/cache-manager'
+import { CacheConfig } from '../cache/cache-config'
 
 const logger = new Logger()
 
@@ -116,8 +118,8 @@ export const DEFAULT_ORCHESTRATION_CONFIG: OrchestrationConfig = {
   },
   caching: {
     respectServiceCaching: true,
-    aggregateResults: false, // Don't cache orchestration results by default
-    cacheTtl: 5 * 60 * 1000 // 5 minutes
+    aggregateResults: true, // Enable orchestration result caching
+    cacheTtl: 4 * 60 * 60 * 1000 // 4 hours for orchestration results
   }
 }
 
@@ -129,6 +131,7 @@ export class AnalysisOrchestrator {
   private config: OrchestrationConfig
   private scoringCalculator: ScoringCalculator
   private services: AnalysisServices
+  private orchestratorCache?: CacheManager<OrchestrationResult>
   private analysisHistory: Array<{ url: string; result: OrchestrationResult; timestamp: Date }> = []
 
   constructor(config?: Partial<OrchestrationConfig>) {
@@ -140,10 +143,36 @@ export class AnalysisOrchestrator {
     // Initialize scoring calculator
     this.scoringCalculator = new ScoringCalculator(this.config.scoring)
 
+    // Initialize orchestrator-level cache if enabled
+    if (this.config.caching.aggregateResults) {
+      const environment = process.env.NODE_ENV || 'development'
+      const cacheConfig = CacheConfig.getEnvironmentConfig(environment)
+      
+      this.orchestratorCache = ServiceFactory.createMemoryCache({
+        prefix: 'orchestrator',
+        ttl: this.config.caching.cacheTtl,
+        maxSize: cacheConfig.layers.l1.maxEntries,
+        maxMemoryMB: cacheConfig.memory.maxSizeMB / 4, // Use 1/4 of total memory for orchestrator
+        evictionThreshold: cacheConfig.memory.evictionThreshold,
+        enableMemoryTracking: true
+      })
+
+      // Start background cleanup if the cache has this method
+      if (this.orchestratorCache && typeof this.orchestratorCache.startBackgroundCleanup === 'function') {
+        this.orchestratorCache.startBackgroundCleanup()
+      }
+
+      logger.info('Orchestrator caching enabled', {
+        ttl: this.config.caching.cacheTtl,
+        memoryLimit: cacheConfig.memory.maxSizeMB / 4
+      })
+    }
+
     logger.info('AnalysisOrchestrator initialized', {
       config: this.config,
       parallelExecution: this.config.parallelExecution.enabled,
-      maxConcurrency: this.config.parallelExecution.maxConcurrency
+      maxConcurrency: this.config.parallelExecution.maxConcurrency,
+      cachingEnabled: !!this.orchestratorCache
     })
   }
 
@@ -162,6 +191,35 @@ export class AnalysisOrchestrator {
     
     try {
       logger.info('Starting orchestrated analysis', { url, options })
+
+      // Generate cache key for URL analysis
+      const cacheKey = CacheConfig.createCacheKey('url', url)
+
+      // Check orchestrator cache first (unless force refresh)
+      if (this.orchestratorCache && !options?.forceRefresh) {
+        const cachedResult = await this.orchestratorCache.get(cacheKey)
+        if (cachedResult) {
+          logger.info('Returning cached orchestration result', { 
+            url, 
+            cacheKey,
+            originalProcessingTime: cachedResult.orchestrationMetrics.totalProcessingTime
+          })
+          
+          // Update metrics to reflect cache hit
+          const resultWithCacheMetrics: OrchestrationResult = {
+            ...cachedResult,
+            orchestrationMetrics: {
+              ...cachedResult.orchestrationMetrics,
+              totalProcessingTime: Date.now() - startTime, // Actual time for cache lookup
+              cachingEnabled: true
+            }
+          }
+          
+          // Record in history
+          this.recordAnalysisResult(url, resultWithCacheMetrics)
+          return resultWithCacheMetrics
+        }
+      }
 
       // Validate and parse URL
       const parsedUrl = this.parseAndValidateURL(url)
@@ -205,6 +263,20 @@ export class AnalysisOrchestrator {
         }
       }
 
+      // Cache the orchestration result if caching is enabled
+      if (this.orchestratorCache) {
+        try {
+          await this.orchestratorCache.set(cacheKey, orchestrationResult)
+          logger.debug('Cached orchestration result', { url, cacheKey })
+        } catch (error) {
+          logger.warn('Failed to cache orchestration result', { 
+            url, 
+            cacheKey,
+            error: error instanceof Error ? error : new Error(String(error))
+          })
+        }
+      }
+
       // Record result for history
       this.recordAnalysisResult(url, orchestrationResult)
 
@@ -213,7 +285,8 @@ export class AnalysisOrchestrator {
         finalScore: scoringResult.finalScore,
         riskLevel: scoringResult.riskLevel,
         totalProcessingTime: orchestrationResult.orchestrationMetrics.totalProcessingTime,
-        servicesSucceeded: succeededCount
+        servicesSucceeded: succeededCount,
+        cached: !!this.orchestratorCache
       })
 
       return orchestrationResult
@@ -310,6 +383,121 @@ export class AnalysisOrchestrator {
     this.analysisHistory = []
     this.scoringCalculator.clearHistory()
     logger.info('Orchestrator history cleared')
+  }
+
+  /**
+   * Clear orchestrator cache
+   */
+  async clearCache(): Promise<void> {
+    if (this.orchestratorCache) {
+      await this.orchestratorCache.clear()
+      logger.info('Orchestrator cache cleared')
+    }
+  }
+
+  /**
+   * Invalidate cache entries by URL pattern
+   */
+  async invalidateCachePattern(pattern: RegExp): Promise<number> {
+    if (this.orchestratorCache) {
+      const invalidated = await this.orchestratorCache.invalidatePattern(pattern)
+      logger.info('Cache entries invalidated by pattern', { 
+        pattern: pattern.toString(), 
+        count: invalidated 
+      })
+      return invalidated
+    }
+    return 0
+  }
+
+  /**
+   * Get orchestrator cache statistics
+   */
+  async getCacheStatistics(): Promise<{
+    enabled: boolean
+    stats?: {
+      hits: number
+      misses: number
+      hitRate: number
+      size: number
+      maxSize: number
+      memoryUsage?: { current: number; max: number; percentage: number }
+    }
+  }> {
+    if (!this.orchestratorCache) {
+      return { enabled: false }
+    }
+
+    const stats = await this.orchestratorCache.getEnhancedStats()
+    return {
+      enabled: true,
+      stats: {
+        hits: stats.hits,
+        misses: stats.misses,
+        hitRate: stats.hitRate,
+        size: stats.size,
+        maxSize: stats.maxSize,
+        memoryUsage: stats.memoryUsage
+      }
+    }
+  }
+
+  /**
+   * Warm orchestrator cache with popular URLs
+   */
+  async warmCache(urls: string[]): Promise<void> {
+    if (!this.orchestratorCache) {
+      logger.warn('Cache warming requested but orchestrator cache is disabled')
+      return
+    }
+
+    logger.info('Starting orchestrator cache warming', { urlCount: urls.length })
+
+    const warmingEntries = urls.map(url => ({
+      key: CacheConfig.createCacheKey('url', url),
+      factory: () => this.executeAnalysisWithoutCache(url),
+      ttl: this.config.caching.cacheTtl
+    }))
+
+    await this.orchestratorCache.warmCache(warmingEntries)
+    logger.info('Orchestrator cache warming completed')
+  }
+
+  /**
+   * Execute analysis without checking cache (used for warming)
+   */
+  private async executeAnalysisWithoutCache(url: string): Promise<OrchestrationResult> {
+    const startTime = Date.now()
+
+    // Validate and parse URL
+    const parsedUrl = this.parseAndValidateURL(url)
+    
+    // Execute analysis services
+    const serviceResults = await this.executeAnalysisServices(url, parsedUrl, false)
+
+    // Check minimum required services
+    const succeededCount = this.countSuccessfulServices(serviceResults)
+    if (succeededCount < this.config.errorHandling.minimumRequiredServices) {
+      throw new Error(`Insufficient successful services: ${succeededCount}/${this.config.errorHandling.minimumRequiredServices} required`)
+    }
+
+    // Build scoring input and calculate score
+    const scoringInput = this.buildScoringInput(url, serviceResults)
+    const scoringResult = await this.executeScoring(scoringInput)
+
+    // Build orchestration result
+    return {
+      scoringResult,
+      serviceResults: this.buildServiceResultsSummary(serviceResults),
+      orchestrationMetrics: {
+        totalProcessingTime: Date.now() - startTime,
+        servicesExecuted: Object.keys(serviceResults).length,
+        servicesSucceeded: succeededCount,
+        servicesFailed: Object.keys(serviceResults).length - succeededCount,
+        cachingEnabled: this.config.caching.respectServiceCaching,
+        parallelExecution: this.config.parallelExecution.enabled
+      }
+    }
   }
 
   /**

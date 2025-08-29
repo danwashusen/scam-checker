@@ -62,33 +62,33 @@ export class ServiceFactory {
     }
   }
   /**
-   * Create ReputationService instance with optional configuration
+   * Create ReputationService instance with optional configuration and cache
    */
-  static createReputationService(config?: Partial<SafeBrowsingConfig>): ReputationService {
-    return new ReputationService(config)
+  static createReputationService(config?: Partial<SafeBrowsingConfig>, cache?: CacheManager<unknown>): ReputationService {
+    return new ReputationService(config, cache as CacheManager<any>) // eslint-disable-line @typescript-eslint/no-explicit-any
   }
 
   /**
-   * Create WhoisService instance with optional configuration
+   * Create WhoisService instance with optional configuration and cache
    */
-  static createWhoisService(config?: Partial<WhoisServiceConfig>): WhoisService {
-    return new WhoisService(config)
+  static createWhoisService(config?: Partial<WhoisServiceConfig>, cache?: CacheManager<unknown>): WhoisService {
+    return new WhoisService(config, cache as CacheManager<any>) // eslint-disable-line @typescript-eslint/no-explicit-any
   }
 
   /**
-   * Create SSLService instance with optional configuration
+   * Create SSLService instance with optional configuration and cache
    */
-  static createSSLService(config?: Partial<SSLServiceConfig>): SSLService {
-    return new SSLService(config)
+  static createSSLService(config?: Partial<SSLServiceConfig>, cache?: CacheManager<unknown>): SSLService {
+    return new SSLService(config, cache as CacheManager<any>) // eslint-disable-line @typescript-eslint/no-explicit-any
   }
 
   /**
-   * Create AIURLAnalyzer instance with optional configuration
+   * Create AIURLAnalyzer instance with optional configuration and cache
    */
-  static createAIURLAnalyzer(_config?: Partial<AIAnalyzerConfig>): AIURLAnalyzer {
+  static createAIURLAnalyzer(_config?: Partial<AIAnalyzerConfig>, cache?: CacheManager<unknown>): AIURLAnalyzer {
     // AIURLAnalyzer doesn't currently accept config in constructor
     // We'll need to modify it or pass config differently
-    const analyzer = new AIURLAnalyzer()
+    const analyzer = new AIURLAnalyzer(cache as CacheManager<any>) // eslint-disable-line @typescript-eslint/no-explicit-any
     return analyzer
   }
 
@@ -119,22 +119,21 @@ export class ServiceFactory {
    * Create complete bundle of analysis services with optional configuration and caching
    */
   static createAnalysisServices(config?: ServicesConfig, enableCaching = true): AnalysisServices {
-    const services = {
-      reputation: this.createReputationService(config?.reputation),
-      whois: this.createWhoisService(config?.whois),
-      ssl: this.createSSLService(config?.ssl),
-      aiAnalyzer: this.createAIURLAnalyzer(config?.ai),
-      logger: this.createLogger(config?.logger)
-    }
-
-    // Add caching support if enabled and services support it
+    let caches: ReturnType<typeof this.createServiceCaches> | undefined
+    
+    // Create cache managers if caching is enabled
     if (enableCaching) {
       const environment = process.env.NODE_ENV as ServiceEnvironment || 'development'
-      const _caches = this.createServiceCaches(environment)
-      
-      // Note: Individual services would need to be modified to accept cache managers
-      // This is a placeholder for future service cache integration
-      // For now, we return the services without cache injection
+      caches = this.createServiceCaches(environment)
+    }
+
+    // Create services with cache injection
+    const services = {
+      reputation: this.createReputationService(config?.reputation, caches?.reputation),
+      whois: this.createWhoisService(config?.whois, caches?.whois),
+      ssl: this.createSSLService(config?.ssl, caches?.ssl),
+      aiAnalyzer: this.createAIURLAnalyzer(config?.ai, caches?.ai),
+      logger: this.createLogger(config?.logger)
     }
 
     return services

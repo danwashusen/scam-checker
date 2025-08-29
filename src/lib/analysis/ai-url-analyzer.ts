@@ -41,7 +41,7 @@ export class AIURLAnalyzer {
   private isEnabled: boolean = false
   private promptSelectionHistory: PromptSelectionResult[] = []
 
-  constructor() {
+  constructor(cache?: CacheManager<AIAnalysisResult>) {
     this.config = loadAIConfig()
     
     // Validate configuration
@@ -55,8 +55,8 @@ export class AIURLAnalyzer {
       this.isEnabled = this.config.enabled
     }
 
-    // Initialize cache
-    this.cache = new CacheManager<AIAnalysisResult>({
+    // Use provided cache or initialize cache
+    this.cache = cache || new CacheManager<AIAnalysisResult>({
       prefix: 'ai-url-analysis',
       ttl: this.config.cache.ttl,
       maxSize: this.config.cache.maxSize,

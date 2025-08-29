@@ -36,7 +36,7 @@ export class ReputationService implements ReputationServiceInterface {
     cacheHits: 0
   }
 
-  constructor(config?: Partial<SafeBrowsingConfig>) {
+  constructor(config?: Partial<SafeBrowsingConfig>, cache?: CacheManager<ReputationAnalysis>) {
     this.config = {
       apiKey: process.env.GOOGLE_SAFE_BROWSING_API_KEY,
       clientId: 'scam-checker',
@@ -62,8 +62,8 @@ export class ReputationService implements ReputationServiceInterface {
       ...config
     }
 
-    // Initialize cache with 24-hour TTL as per story requirements
-    this.cache = new CacheManager<ReputationAnalysis>({
+    // Use provided cache or initialize with 24-hour TTL as per story requirements
+    this.cache = cache || new CacheManager<ReputationAnalysis>({
       prefix: 'reputation',
       ttl: 24 * 60 * 60 * 1000, // 24 hours
       maxSize: 1000

@@ -34,7 +34,7 @@ export class SSLService {
   private cache: CacheManager<SSLCacheEntry>
   public config: SSLServiceConfig
 
-  constructor(config?: Partial<SSLServiceConfig>) {
+  constructor(config?: Partial<SSLServiceConfig>, cache?: CacheManager<SSLCacheEntry>) {
     this.config = {
       cacheEnabled: true,
       cacheTtl: 6 * 60 * 60 * 1000, // 6 hours
@@ -46,8 +46,8 @@ export class SSLService {
       ...config
     }
 
-    // Initialize dedicated cache instance for SSL data
-    this.cache = new CacheManager<SSLCacheEntry>({
+    // Use provided cache or initialize dedicated cache instance for SSL data
+    this.cache = cache || new CacheManager<SSLCacheEntry>({
       prefix: 'ssl',
       ttl: this.config.cacheTtl,
       maxSize: 1000

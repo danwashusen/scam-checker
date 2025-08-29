@@ -28,7 +28,7 @@ export class WhoisService {
   private cache: CacheManager<WhoisCacheEntry>
   public config: WhoisServiceConfig
 
-  constructor(config?: Partial<WhoisServiceConfig>) {
+  constructor(config?: Partial<WhoisServiceConfig>, cache?: CacheManager<WhoisCacheEntry>) {
     this.config = {
       cacheEnabled: true,
       cacheTtl: 24 * 60 * 60 * 1000, // 24 hours
@@ -38,8 +38,8 @@ export class WhoisService {
       ...config
     }
 
-    // Initialize dedicated cache instance for WHOIS data
-    this.cache = new CacheManager<WhoisCacheEntry>({
+    // Use provided cache or initialize dedicated cache instance for WHOIS data
+    this.cache = cache || new CacheManager<WhoisCacheEntry>({
       prefix: 'whois',
       ttl: this.config.cacheTtl,
       maxSize: 1000
