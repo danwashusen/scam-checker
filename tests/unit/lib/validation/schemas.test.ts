@@ -142,7 +142,7 @@ describe('Validation Schemas', () => {
       const result = URLFormInputSchema.safeParse({ url: '' })
       expect(result.success).toBe(false)
       if (!result.success) {
-        expect(result.error.errors[0].message).toBe('Please enter a URL')
+        expect(result.error.issues[0].message).toBe('Please enter a URL')
       }
     })
   })
@@ -184,7 +184,7 @@ describe('Validation Schemas', () => {
       const result = validator.safeParse('http://example.com')
       expect(result.success).toBe(false)
       if (!result.success) {
-        expect(result.error.errors[0].message).toBe('Invalid URL format') // Generic message
+        expect(result.error.issues[0].message).toBe('Invalid URL format') // Generic message
       }
     })
   })
@@ -203,7 +203,7 @@ describe('Validation Schemas', () => {
         const result = validateURLInput({ url: 'invalid' })
         expect(result.success).toBe(false)
         if (!result.success) {
-          expect(result.error.errors.length).toBeGreaterThan(0)
+          expect(result.error.issues.length).toBeGreaterThan(0)
         }
       })
     })
@@ -235,7 +235,7 @@ describe('Validation Schemas', () => {
         const result = validateFormInput({ url: '' })
         expect(result.success).toBe(false)
         if (!result.success) {
-          expect(result.error.errors[0].message).toBe('Please enter a URL')
+          expect(result.error.issues[0].message).toBe('Please enter a URL')
         }
       })
     })
@@ -315,7 +315,7 @@ describe('Validation Schemas', () => {
       })
       expect(result.success).toBe(false)
       if (!result.success) {
-        expect(result.error.errors.length).toBeGreaterThan(0)
+        expect(result.error.issues.length).toBeGreaterThan(0)
       }
     })
 
@@ -342,7 +342,7 @@ describe('Validation Schemas', () => {
       if (result.success) {
         expect(result.data.url).toContain('[::1]')
       } else {
-        expect(result.error.errors.length).toBeGreaterThan(0)
+        expect(result.error.issues.length).toBeGreaterThan(0)
       }
     })
   })
@@ -375,7 +375,7 @@ describe('Validation Schemas', () => {
       })
       // Should handle based on our validator's length limits
       if (!result.success) {
-        expect(result.error.errors.some(e => e.message.includes('length'))).toBeTruthy()
+        expect(result.error.issues.some(e => e.message.includes('length'))).toBeTruthy()
       }
     })
   })

@@ -72,11 +72,11 @@ const HOMOGRAPH_MAPPINGS: Record<string, string[]> = {
  * Common phishing path patterns
  */
 const PHISHING_PATH_PATTERNS = [
-  /\/(login|signin|sign-in|log-in)[\w\-]*\.(php|html|asp|aspx)/i,
-  /\/(verify|verification|validate|confirm|secure)[\w\-]*\.(php|html)/i,
-  /\/(update|renewal|suspended|locked|blocked)[\w\-]*\.(php|html)/i,
-  /\/(account|billing|security|profile)[\w\-]*\.(php|html)/i,
-  /\/(urgent|immediate|action|required)[\w\-]*\.(php|html)/i
+  /\/(login|signin|sign-in|log-in)[\w-]*\.(php|html|asp|aspx)/i,
+  /\/(verify|verification|validate|confirm|secure)[\w-]*\.(php|html)/i,
+  /\/(update|renewal|suspended|locked|blocked)[\w-]*\.(php|html)/i,
+  /\/(account|billing|security|profile)[\w-]*\.(php|html)/i,
+  /\/(urgent|immediate|action|required)[\w-]*\.(php|html)/i
 ]
 
 /**
@@ -84,7 +84,7 @@ const PHISHING_PATH_PATTERNS = [
  */
 const SUSPICIOUS_PARAM_PATTERNS = [
   /^(redirect|continue|return|next|goto|url)=https?:\/\/[^&]+/i,
-  /^(token|session|auth|key)=[a-zA-Z0-9+\/=]{20,}/i,
+  /^(token|session|auth|key)=[a-zA-Z0-9+/=]{20,}/i,
   /^(user|username|email|login)=[^&]+/i
 ]
 

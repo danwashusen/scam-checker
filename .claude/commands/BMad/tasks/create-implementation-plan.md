@@ -1,3 +1,7 @@
+# /create-implementation-plan Task
+
+When this command is used, execute the following task:
+
 <!-- Powered by BMAD™ Core -->
 
 # Create Implementation Plan Task

@@ -1,25 +1,25 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
+import { ThemeProvider } from '@/providers/theme-provider'
+import { Header } from '@/components/layout/header'
+import { Footer } from '@/components/layout/footer'
+import { ToastProvider } from '@/components/ui/toast'
 import './globals.css'
 
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Scam Checker - URL Safety Analysis Tool',
-  description: 'A comprehensive URL analysis tool that helps users identify potentially malicious websites through multi-factor risk assessment.',
-  keywords: ['security', 'url analysis', 'scam detection', 'website safety'],
-  authors: [{ name: 'Development Team' }],
-  creator: 'Development Team',
+  title: 'Scam Checker - URL Analysis Tool',
+  description: 'Analyze URLs for potential scams and security risks using advanced AI and technical analysis.',
+  keywords: ['scam detection', 'URL analysis', 'security', 'phishing', 'malware detection'],
+  authors: [{ name: 'Scam Checker Team' }],
+  creator: 'Scam Checker',
   publisher: 'Scam Checker',
-  robots: 'index, follow',
-  icons: {
-    icon: '/favicon.ico',
+  formatDetection: {
+    email: false,
+    address: false,
+    telephone: false,
   },
-}
-
-export const viewport = {
-  width: 'device-width',
-  initialScale: 1,
 }
 
 export default function RootLayout({
@@ -28,11 +28,19 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={inter.className}>
-      <body className="min-h-screen bg-background font-sans antialiased">
-        <div className="relative flex min-h-screen flex-col">
-          <main className="flex-1">{children}</main>
-        </div>
+    <html lang="en" suppressHydrationWarning>
+      <body className={inter.className}>
+        <ThemeProvider>
+          <ToastProvider>
+            <div className="min-h-screen bg-background flex flex-col">
+              <Header />
+              <main className="flex-1">
+                {children}
+              </main>
+              <Footer />
+            </div>
+          </ToastProvider>
+        </ThemeProvider>
       </body>
     </html>
   )

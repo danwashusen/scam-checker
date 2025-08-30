@@ -63,6 +63,7 @@ export function validateURL(input: string, options: URLValidationOptions = {}): 
   }
 
   // Check for control characters and null bytes
+  // eslint-disable-next-line no-control-regex
   if (/[\x00-\x1f\x7f]/.test(input)) {
     return {
       isValid: false,
@@ -161,7 +162,7 @@ function validateDomain(hostname: string, options: Required<URLValidationOptions
   }
 
   // Basic domain format validation
-  const domainPattern = /^[a-zA-Z0-9]([a-zA-Z0-9\-]*[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]*[a-zA-Z0-9])?)*$/
+  const domainPattern = /^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?)*$/
   if (!domainPattern.test(hostname) && !isValidIP(hostname)) {
     return {
       isValid: false,

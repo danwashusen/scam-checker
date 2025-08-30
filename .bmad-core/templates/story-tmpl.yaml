@@ -131,55 +131,6 @@ sections:
         owner: dev-agent
         editors: [dev-agent]
 
-  - id: definition-of-done
-    title: Definition of Done Verification
-    type: checklist
-    instruction: |
-      MANDATORY: This checklist MUST be completed before story can be marked as "Done".
-      Dev Agent: Run the verification commands and check each item before changing status to Done.
-      Scrum Master: Verify this section is complete before accepting Done status.
-    owner: dev-agent
-    editors: [dev-agent]
-    required_for_done: true
-    template: |
-      ## Code Quality Requirements
-      ### ✅ Linting & Code Standards
-      - [ ] **ESLint passes with zero errors**: `npm run lint` shows no errors
-      - [ ] **TypeScript compiles without errors**: `npm run type-check` passes
-      - [ ] **Code follows project coding standards**: Follows patterns in `docs/architecture/coding-standards.md`
-      - [ ] **No console.log or debugging code left in production code**
-
-      ### ✅ Testing Requirements  
-      - [ ] **All existing tests still pass**: `npm test` passes completely
-      - [ ] **New unit tests written for new functionality**: Coverage maintained/improved
-      - [ ] **Integration tests updated if needed**: `npm run test:integration` passes
-      - [ ] **Test coverage meets minimum threshold**: `npm run test:coverage` shows adequate coverage
-      - [ ] **Manual testing completed**: All acceptance criteria validated manually
-
-      ### ✅ Build & Deployment
-      - [ ] **Application builds successfully**: `npm run build` completes without errors
-      - [ ] **No build warnings for new code**: Only pre-existing warnings acceptable
-      - [ ] **Application starts and runs**: `npm run dev` works correctly
-
-      ### ✅ Documentation & Compliance
-      - [ ] **All acceptance criteria verified**: Each AC item explicitly tested and confirmed
-      - [ ] **All tasks/subtasks completed**: Every checkbox in Tasks section marked complete
-      - [ ] **File list updated**: All modified/created files documented in Dev Agent Record
-      - [ ] **Change log updated**: Story changes tracked with appropriate version bump
-
-      ### ✅ Code Review Requirements
-      - [ ] **Self-review completed**: Dev agent has reviewed all changes
-      - [ ] **No obvious security issues**: No hardcoded secrets, proper validation, safe patterns
-      - [ ] **Performance considerations addressed**: No obvious performance regressions
-      - [ ] **Error handling implemented**: Proper error boundaries and user feedback
-
-      ## Verification Commands
-      **MUST RUN BEFORE MARKING DONE:**
-      ```bash
-      npm run lint && npm run type-check && npm test && npm run build
-      ```
-      **All commands must pass with zero errors.**
-
   - id: qa-results
     title: QA Results
     instruction: Results from QA Agent QA review of the completed story implementation

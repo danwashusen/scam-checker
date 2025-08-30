@@ -34,8 +34,8 @@ const DEFAULT_OPTIONS: UseURLValidationOptions = {
  */
 export function useURLValidation(options: UseURLValidationOptions = {}): UseURLValidationReturn {
   const opts = { ...DEFAULT_OPTIONS, ...options }
-  const debounceRef = useRef<NodeJS.Timeout>()
-  const validationRef = useRef<AbortController>()
+  const debounceRef = useRef<NodeJS.Timeout | null>(null)
+  const validationRef = useRef<AbortController | null>(null)
 
   const [state, setState] = useState<URLInputState>({
     value: '',

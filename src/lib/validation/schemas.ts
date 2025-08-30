@@ -244,7 +244,7 @@ export function validateFormInput(data: unknown): { success: true; data: URLForm
 
 // Helper to format Zod errors for user-friendly display
 export function formatValidationError(error: z.ZodError): string {
-  const firstError = error.errors[0]
+  const firstError = error.issues[0]
   if (firstError?.message) {
     return firstError.message
   }
@@ -253,12 +253,12 @@ export function formatValidationError(error: z.ZodError): string {
 
 // Helper to get all validation error messages
 export function getAllValidationErrors(error: z.ZodError): string[] {
-  return error.errors.map(err => err.message)
+  return error.issues.map(err => err.message)
 }
 
 // Helper to check if error is related to URL format
 export function isURLFormatError(error: z.ZodError): boolean {
-  return error.errors.some(err => 
+  return error.issues.some(err => 
     err.path.includes('url') || 
     err.message.toLowerCase().includes('url') ||
     err.message.toLowerCase().includes('format')

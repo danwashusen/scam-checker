@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
       services.logger.warn('URL validation failed', {
         message: errorMessage,
         input: sanitizeForLogging(body?.url || 'undefined'),
-        errors: requestValidation.error.errors,
+        errors: requestValidation.error.issues,
       })
       
       return NextResponse.json(
@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
           success: false,
           error: 'Invalid URL provided',
           message: errorMessage,
-          details: requestValidation.error.errors.map(err => ({
+          details: requestValidation.error.issues.map((err) => ({
             field: err.path.join('.') || 'url',
             message: err.message,
             code: err.code,
