@@ -1,5 +1,7 @@
 # Story 2-1: Multi-Factor Scoring Algorithm
 
+## Status: Approved
+
 ## User Story
 
 As a **risk assessment engine**,
@@ -119,3 +121,10 @@ So that **I can generate accurate 0-100 risk scores that reflect the true likeli
 - Maximum 10% false positive rate on legitimate URLs
 - Consistent scoring within ±5 points on repeated analysis
 - Performance under 100ms for score calculation
+
+## Dev Notes
+
+**Implementation Plan Created**: 2025-08-29
+- Comprehensive implementation plan available at: story-2-1-multi-factor-scoring-algorithm-implementation-plan.md
+- Plan includes detailed architecture, component structure, and step-by-step implementation guide
+- Ready for development using either James (*develop-story) or Julee (*agent dev-junior)
