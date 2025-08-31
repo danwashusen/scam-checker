@@ -1,0 +1,9 @@
+# Claude-specific configuration for pm agent
+provider: claude
+model: sonnet         # Use Sonnet for project management tasks
+tools: all           # Inherit all available tools
+color: orange        # Color for visual distinction
+
+# Native agent wrapper settings
+wrapper:
+  name: BMAD-pm

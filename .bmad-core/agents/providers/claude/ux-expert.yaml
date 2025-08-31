@@ -1,0 +1,9 @@
+# Claude-specific configuration for ux-expert agent
+provider: claude
+model: opus         # Use Opus model for UX design tasks
+tools: all           # Inherit all available tools
+color: pink          # Color for visual distinction
+
+# Native agent wrapper settings
+wrapper:
+  name: BMAD-ux-expert

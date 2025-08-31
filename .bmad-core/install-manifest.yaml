@@ -1,5 +1,5 @@
 version: 4.40.1
-installed_at: '2025-08-30T04:05:33.427Z'
+installed_at: '2025-08-31T00:16:59.564Z'
 install_type: full
 agent: null
 ides_setup:
@@ -245,4 +245,43 @@ files:
     modified: false
   - path: .bmad-core/agent-teams/team-all.yaml
     hash: db5b0ff0a9c9c2e8
+    modified: false
+  - path: .bmad-core/agents/providers/README.md
+    hash: ac2af427f820a95a
+    modified: false
+  - path: .bmad-core/agents/providers/claude/ux-expert.yaml
+    hash: f6b8a15cdd3030ad
+    modified: false
+  - path: .bmad-core/agents/providers/claude/sm.yaml
+    hash: 78005c9bfc0d57a3
+    modified: false
+  - path: .bmad-core/agents/providers/claude/qa.yaml
+    hash: b48571c1bee9b237
+    modified: false
+  - path: .bmad-core/agents/providers/claude/po.yaml
+    hash: 4cc357ba6041e44d
+    modified: false
+  - path: .bmad-core/agents/providers/claude/pm.yaml
+    hash: 91de8f766eddabac
+    modified: false
+  - path: .bmad-core/agents/providers/claude/dev.yaml
+    hash: e20bdd190ebdc3b6
+    modified: false
+  - path: .bmad-core/agents/providers/claude/dev-junior.yaml
+    hash: 69db8f1d4f1652a0
+    modified: false
+  - path: .bmad-core/agents/providers/claude/bmad-orchestrator.yaml
+    hash: 97508765bc8290fc
+    modified: false
+  - path: .bmad-core/agents/providers/claude/bmad-master.yaml
+    hash: 63b09822b674d16f
+    modified: false
+  - path: .bmad-core/agents/providers/claude/architect.yaml
+    hash: 2bece100c48ac54e
+    modified: false
+  - path: .bmad-core/agents/providers/claude/analyst.yaml
+    hash: 85ab9b04218b6412
+    modified: false
+  - path: .bmad-core/agents/providers/claude/agent-template.md
+    hash: ef7b2de9e083d201
     modified: false

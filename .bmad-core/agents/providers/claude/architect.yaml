@@ -1,0 +1,9 @@
+# Claude-specific configuration for architect agent
+provider: claude
+model: opus           # Use Opus model for complex architectural decisions
+tools: all           # Inherit all available tools
+color: purple        # Color for visual distinction
+
+# Native agent wrapper settings
+wrapper:
+  name: BMAD-architect

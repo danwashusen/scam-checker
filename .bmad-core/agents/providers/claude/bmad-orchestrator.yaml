@@ -1,0 +1,9 @@
+# Claude-specific configuration for bmad-orchestrator agent
+provider: claude
+model: sonnet         # Use Sonnet model for complex coordination
+tools: all           # Inherit all available tools
+color: indigo        # Color for visual distinction
+
+# Native agent wrapper settings
+wrapper:
+  name: BMAD-orchestrator

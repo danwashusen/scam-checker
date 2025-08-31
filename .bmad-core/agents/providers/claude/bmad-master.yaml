@@ -1,0 +1,9 @@
+# Claude-specific configuration for bmad-master agent
+provider: claude
+model: opus           # Use Opus model for master/senior role
+tools: all           # Inherit all available tools
+color: gold          # Color for visual distinction
+
+# Native agent wrapper settings
+wrapper:
+  name: BMAD-master

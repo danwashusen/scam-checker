@@ -1,0 +1,9 @@
+# Claude-specific configuration for analyst agent
+provider: claude
+model: sonnet         # Use Sonnet model for analytical tasks
+tools: all           # Inherit all available tools
+color: cyan          # Color for visual distinction
+
+# Native agent wrapper settings
+wrapper:
+  name: BMAD-analyst

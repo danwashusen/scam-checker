@@ -1,0 +1,9 @@
+# Claude-specific configuration for sm agent
+provider: claude
+model: sonnet         # Use Sonnet model for scrum master tasks
+tools: all           # Inherit all available tools
+color: yellow        # Color for visual distinction
+
+# Native agent wrapper settings
+wrapper:
+  name: BMAD-sm
