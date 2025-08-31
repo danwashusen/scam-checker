@@ -70,6 +70,27 @@ export interface URLInputState {
   normalizedUrl?: string
   showSuggestion?: boolean
   suggestion?: string
+  validatedAt?: number // Story 3-1: Track when validation occurred
+}
+
+// Story 3-1: Enhanced validation state for real-time feedback
+export interface ValidationState {
+  status: 'idle' | 'validating' | 'valid' | 'invalid'
+  error?: string
+  errorType?: 'invalid-format' | 'unsupported-protocol' | 'invalid-domain' | 'security-risk' | 'too-long'
+  suggestion?: string
+  normalizedUrl?: string
+  validatedAt?: number
+}
+
+// Story 3-1: Visual feedback configuration
+export interface VisualFeedback {
+  borderClass: string
+  focusClass: string
+  icon?: React.ReactNode
+  message?: string
+  messageType: 'error' | 'success' | 'info'
+  showPulse?: boolean
 }
 
 export interface URLValidationFeedback {

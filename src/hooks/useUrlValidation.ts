@@ -17,13 +17,14 @@ export interface UseURLValidationReturn {
   state: URLInputState
   setValue: (value: string) => void
   validate: () => Promise<void>
+  validateImmediately: (value: string) => Promise<void> // Story 3-1: For paste events
   clear: () => void
   getFeedback: () => URLValidationFeedback[]
   isReady: boolean
 }
 
 const DEFAULT_OPTIONS: UseURLValidationOptions = {
-  debounceMs: 300,
+  debounceMs: 100, // Reduced from 300ms for faster feedback per Story 3-1
   validateOnChange: true,
   showSuggestions: true,
   autoCorrect: false,
@@ -142,6 +143,7 @@ export function useURLValidation(options: UseURLValidationOptions = {}): UseURLV
         normalizedUrl: finalUrl,
         suggestion,
         showSuggestion: opts.showSuggestions && !!suggestion,
+        validatedAt: Date.now(), // Story 3-1: Track validation timestamp
       }))
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
@@ -179,6 +181,18 @@ export function useURLValidation(options: UseURLValidationOptions = {}): UseURLV
   const validate = useCallback(async () => {
     await performValidation(state.value)
   }, [performValidation, state.value])
+
+  // Story 3-1: Immediate validation for paste events
+  const validateImmediately = useCallback(async (value: string) => {
+    // Cancel any pending debounced validation
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current)
+    }
+    
+    // Update state and validate immediately
+    setState(prev => ({ ...prev, value }))
+    await performValidation(value)
+  }, [performValidation])
 
   const clear = useCallback(() => {
     if (debounceRef.current) {
@@ -253,6 +267,7 @@ export function useURLValidation(options: UseURLValidationOptions = {}): UseURLV
     state,
     setValue,
     validate,
+    validateImmediately, // Story 3-1: Added for paste event handling
     clear,
     getFeedback,
     isReady,
