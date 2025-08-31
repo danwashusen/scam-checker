@@ -1,111 +1,179 @@
 'use client'
 
 import * as React from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import * as z from 'zod'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Spinner } from '@/components/ui/spinner'
-import { AlertCircle, Search, CheckCircle, X } from 'lucide-react'
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form'
+import { Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useURLValidation } from '@/hooks/useUrlValidation'
 import { useToast } from '@/components/ui/toast'
 
-// Story 3-1: Enhanced props for improved UX - Made onSubmit required per James's feedback
+// Comprehensive Zod schema following implementation plan
+const formSchema = z.object({
+  url: z.string()
+    .min(1, 'URL is required')
+    .transform((val) => {
+      // Auto-add protocol if missing
+      if (!val.startsWith('http://') && !val.startsWith('https://')) {
+        return 'https://' + val
+      }
+      return val
+    })
+    .pipe(
+      z.string().url('Please enter a valid URL')
+    )
+    .refine((url) => {
+      try {
+        const parsed = new URL(url)
+        return ['http:', 'https:'].includes(parsed.protocol)
+      } catch {
+        return false
+      }
+    }, 'URL must start with http:// or https://')
+    .refine((url) => {
+      // Check for malicious patterns - basic implementation
+      const maliciousPatterns = [
+        /javascript:/i,
+        /vbscript:/i,
+        /data:/i,
+        /<script/i,
+        /onload=/i,
+        /onerror=/i,
+      ]
+      return !maliciousPatterns.some(pattern => pattern.test(url))
+    }, 'URL contains potentially malicious content')
+})
+
 interface UrlInputFormProps {
-  onSubmit: (url: string) => Promise<void>  // Story 3-1: Required - no more stub behavior
+  onSubmit: (url: string) => Promise<void>
   disabled?: boolean
-  initialValue?: string
-  autoFocus?: boolean        // Story 3-1: Auto-focus on mount
-  showSuggestions?: boolean   // Story 3-1: Show auto-correction suggestions
-  autoCorrect?: boolean       // Story 3-1: Apply corrections automatically
   className?: string
-  placeholder?: string
+  initialValue?: string
+  autoFocus?: boolean
 }
 
 export function UrlInputForm({
   onSubmit,
   disabled = false,
-  initialValue = '',
-  autoFocus = true,           // Story 3-1: Default to auto-focus
-  showSuggestions = true,     // Story 3-1: Show suggestions by default
-  autoCorrect = false,        // Story 3-1: Manual correction by default
-  placeholder = 'Enter a URL to analyze (e.g., https://example.com)',
   className,
+  initialValue = '',
+  autoFocus = true,
 }: UrlInputFormProps) {
-  const [isSubmitting, setIsSubmitting] = React.useState(false)
   const { showToast } = useToast()
   
-  // Story 3-1: Use enhanced validation hook
-  const {
-    state,
-    setValue,
-    validateImmediately,
-    clear,
-    getFeedback,
-    isReady
-  } = useURLValidation({
-    debounceMs: 100,
-    validateOnChange: true,
-    showSuggestions,
-    autoCorrect,
+  // Setup react-hook-form with Zod validation
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: { 
+      url: initialValue 
+    },
+    mode: 'onChange', // Real-time validation
+    reValidateMode: 'onChange',
+    criteriaMode: 'all' // Show all errors
   })
-  
-  // Story 3-1: Initialize with initial value
-  React.useEffect(() => {
-    if (initialValue) {
-      setValue(initialValue)
-    }
-  }, [initialValue, setValue])
 
-  // Story 3-1: Enhanced form submission with validation
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    if (!state.value.trim()) {
-      return
-    }
-
-    if (!isReady) {
-      return
-    }
-    
-    const normalizedUrl = state.normalizedUrl || state.value
-    setIsSubmitting(true)
-
+  // Handle form submission with comprehensive error handling
+  const handleSubmit = React.useCallback(async (data: z.infer<typeof formSchema>) => {
     try {
-      // Story 3-1: Direct API integration - no more stub behavior
-      await onSubmit(normalizedUrl)
-      clear() // Clear form on success
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : 'An error occurred', 'error')
-    } finally {
-      setIsSubmitting(false)
+      // Add timeout for slow connections
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Request timed out after 30 seconds')), 30000)
+      )
+      
+      await Promise.race([
+        onSubmit(data.url),
+        timeoutPromise
+      ])
+      
+      // Show success feedback
+      showToast('Analysis complete!', 'success')
+      form.reset() // Reset form to initial state
+      
+    } catch (error: unknown) {
+      // Comprehensive error handling
+      let errorMessage = 'An unexpected error occurred.'
+      
+      if (error instanceof Error) {
+        if (error.message === 'Request timed out after 30 seconds') {
+          errorMessage = 'Request timed out. Please try again.'
+        } else if (error.message.includes('Network')) {
+          errorMessage = 'Network error. Check your connection.'
+        } else {
+          errorMessage = error.message
+        }
+      }
+      
+      // Set form error and show toast
+      form.setError('url', {
+        type: 'manual',
+        message: errorMessage
+      })
+      
+      showToast(errorMessage, 'error')
+      
+      // Focus URL input field on error
+      const urlInput = document.querySelector('input[name="url"]') as HTMLInputElement
+      if (urlInput) {
+        urlInput.focus()
+      }
     }
-  }
+  }, [onSubmit, showToast, form])
 
-  // Story 3-1: Handle input change with real-time validation
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setValue(e.target.value)
-  }
-  
-  // Story 3-1: Handle paste events with immediate validation
-  const handlePaste = async (e: React.ClipboardEvent<HTMLInputElement>) => {
-    e.preventDefault()
-    const pastedText = e.clipboardData.getData('text')
-    await validateImmediately(pastedText)
-  }
-  
-  // Story 3-1: Determine visual state based on validation
-  const getVisualState = () => {
-    if (!state.value) return 'default'
-    if (state.isValidating) return 'validating'
-    if (state.isValid) return 'valid'
-    if (state.error) return 'invalid'
-    return 'default'
-  }
-  
-  const visualState = getVisualState()
-  const feedback = getFeedback()
+  // Real-time validation feedback with debouncing
+  const watchedUrl = form.watch('url')
+  const [debouncedUrl, setDebouncedUrl] = React.useState(watchedUrl)
+
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedUrl(watchedUrl)
+    }, 100) // 100ms debounce
+
+    return () => clearTimeout(timer)
+  }, [watchedUrl])
+
+  // Trigger validation when debounced value changes
+  React.useEffect(() => {
+    if (debouncedUrl && debouncedUrl !== form.getValues('url')) {
+      form.trigger('url')
+    }
+  }, [debouncedUrl, form])
+
+  // Keyboard shortcuts
+  React.useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.target === document.activeElement) {
+        if (event.key === 'Enter' && form.formState.isValid) {
+          form.handleSubmit(handleSubmit)()
+        } else if (event.key === 'Escape') {
+          form.reset()
+          const urlInput = document.querySelector('input[name="url"]') as HTMLInputElement
+          if (urlInput) {
+            urlInput.blur()
+          }
+        }
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [form, handleSubmit])
+
+  const isSubmitting = form.formState.isSubmitting
+  const hasErrors = Object.keys(form.formState.errors).length > 0
+  const isValid = form.formState.isValid && watchedUrl.length > 0
 
   return (
     <Card className={cn('w-full max-w-2xl', className)}>
@@ -115,116 +183,67 @@ export function UrlInputForm({
           URL Analysis
         </CardTitle>
         <CardDescription>
-          Enter a URL to check for potential scams and security risks
+          Enter a URL to check for potential security risks
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <div className="relative">
-              <Input
-                type="url"
-                inputMode="url"      // Story 3-1: Mobile keyboard optimization
-                autoComplete="url"   // Story 3-1: Browser autocomplete
-                autoCapitalize="none" // Story 3-1: Prevent auto-capitalization
-                spellCheck="false"   // Story 3-1: Disable spell check for URLs
-                value={state.value}
-                onChange={handleInputChange}
-                onPaste={handlePaste}
-                placeholder={placeholder}
-                disabled={disabled || isSubmitting}
-                autoFocus={autoFocus} // eslint-disable-line jsx-a11y/no-autofocus -- Story 3-1 requirement
-                aria-invalid={visualState === 'invalid'}
-                aria-describedby={feedback.length > 0 ? 'url-feedback' : undefined}
-                className={cn(
-                  'w-full pr-20 h-12 text-base', // Story 3-1: 16px font to prevent iOS zoom, 48px min height
-                  visualState === 'valid' && 'border-green-500 focus-visible:ring-green-500',
-                  visualState === 'invalid' && 'border-destructive focus-visible:ring-destructive',
-                  visualState === 'validating' && 'border-blue-500 focus-visible:ring-blue-500'
-                )}
-              />
-              
-              {/* Story 3-1: Visual feedback icons */}
-              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                {state.isValidating && (
-                  <Spinner size="sm" className="text-blue-500" />
-                )}
-                {visualState === 'valid' && (
-                  <CheckCircle className="h-5 w-5 text-green-500" />
-                )}
-                {visualState === 'invalid' && (
-                  <AlertCircle className="h-5 w-5 text-destructive" />
-                )}
-                {state.value && (
-                  <button
-                    type="button"
-                    onClick={clear}
-                    className="p-2 hover:bg-gray-100 rounded min-w-[44px] min-h-[44px] flex items-center justify-center" // Story 3-1: 44px minimum touch target
-                    aria-label="Clear URL input"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-            </div>
-            
-            {/* Story 3-1: Enhanced feedback messages with accessibility */}
-            {feedback.length > 0 && (
-              <div id="url-feedback" role="status" aria-live={feedback.some(f => f.level === 'error') ? 'assertive' : 'polite'}>
-                {feedback.map((item, index) => (
-                  <div key={index} className={cn(
-                    'flex items-start gap-2 text-sm p-3 rounded-md', // Story 3-1: Better touch targets with padding
-                    item.level === 'error' && 'text-destructive bg-destructive/10',
-                    item.level === 'success' && 'text-green-600 bg-green-50',
-                    item.level === 'info' && 'text-blue-600 bg-blue-50',
-                    item.level === 'warning' && 'text-yellow-600 bg-yellow-50'
-                  )}>
-                    {item.level === 'error' && <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />}
-                    {item.level === 'success' && <CheckCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />}
-                    <div className="flex-1">
-                      <p>{item.message}</p>
-                      {item.suggestion && (
-                        <p className="mt-1">
-                          Suggestion: <span className="font-medium">{item.suggestion}</span>
-                          {item.action && (
-                            <button
-                              type="button"
-                              onClick={item.action.onClick}
-                              className="ml-2 underline hover:no-underline focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 rounded px-1 min-h-[44px] inline-flex items-center" // Story 3-1: Accessibility focus styles
-                              aria-label={`Apply suggestion: ${item.suggestion}`}
-                            >
-                              {item.action.label}
-                            </button>
-                          )}
-                        </p>
-                      )}
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="url"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>URL to Analyze</FormLabel>
+                  <FormControl>
+                    <div className="relative">
+                      <Input
+                        {...field}
+                        type="url"
+                        inputMode="url"
+                        autoComplete="url"
+                        autoCapitalize="none"
+                        spellCheck="false"
+                        placeholder="https://example.com"
+                        disabled={disabled || isSubmitting}
+                        autoFocus={autoFocus} // eslint-disable-line jsx-a11y/no-autofocus
+                        className={cn(
+                          'pr-24 h-12 text-base',
+                          isValid && 'border-green-500 focus-visible:ring-green-500',
+                          hasErrors && 'border-destructive focus-visible:ring-destructive'
+                        )}
+                        aria-describedby="url-description url-error"
+                      />
+                      <Button
+                        type="submit"
+                        disabled={disabled || isSubmitting || !isValid}
+                        className={cn(
+                          'absolute right-0 top-0 h-12 px-4',
+                          'min-w-[80px]' // Ensure consistent width
+                        )}
+                        size="sm"
+                      >
+                        {isSubmitting ? (
+                          <>
+                            <Spinner className="h-4 w-4 mr-2" />
+                            <span className="hidden sm:inline">Analyzing...</span>
+                            <span className="sm:hidden">...</span>
+                          </>
+                        ) : (
+                          'Analyze'
+                        )}
+                      </Button>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <Button
-            type="submit"
-            className="w-full min-h-[48px] text-base" // Story 3-1: 48px minimum height, larger text
-            disabled={disabled || isSubmitting || !isReady}
-            aria-describedby={!isReady && state.error ? 'url-feedback' : undefined}
-          >
-            {isSubmitting ? (
-              <>
-                <Spinner size="sm" className="mr-2" aria-hidden="true" />
-                <span>Analyzing URL...</span>
-              </>
-            ) : (
-              <>
-                <Search className="h-4 w-4 mr-2" aria-hidden="true" />
-                <span>Analyze URL</span>
-              </>
-            )}
-          </Button>
-
-        </form>
+                  </FormControl>
+                  <FormDescription id="url-description">
+                    Enter a URL to check for potential security risks
+                  </FormDescription>
+                  <FormMessage id="url-error" role="alert" />
+                </FormItem>
+              )}
+            />
+          </form>
+        </Form>
       </CardContent>
     </Card>
   )

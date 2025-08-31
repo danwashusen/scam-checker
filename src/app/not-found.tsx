@@ -3,7 +3,7 @@ import { Header } from '@/components/layout/header'
 import { Footer } from '@/components/layout/footer'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Navigation } from '@/components/layout/navigation'
+import { NavigationMenu } from '@/components/layout/navigation'
 import { FileQuestion, Home, Search } from 'lucide-react'
 
 export default function NotFound() {
@@ -49,7 +49,7 @@ export default function NotFound() {
                     You might be looking for:
                   </p>
                   <div className="flex justify-center">
-                    <Navigation orientation="vertical" className="text-left" />
+                    <NavigationMenu orientation="vertical" className="text-left" />
                   </div>
                 </div>
               </CardContent>

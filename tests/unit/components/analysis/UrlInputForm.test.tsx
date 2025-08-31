@@ -489,13 +489,6 @@ describe('UrlInputForm', () => {
       expect(card).toBeInTheDocument()
     })
 
-    it('should accept custom placeholder', () => {
-      render(<UrlInputForm onSubmit={mockOnSubmit} placeholder="Custom placeholder" />)
-
-      const input = screen.getByRole('textbox')
-      expect(input).toHaveAttribute('placeholder', 'Custom placeholder')
-    })
-
     it('should respect disabled prop', () => {
       render(<UrlInputForm onSubmit={mockOnSubmit} disabled />)
 

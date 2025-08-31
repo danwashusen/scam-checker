@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Navigation } from './navigation'
+import { NavigationMenu } from './navigation'
 import { MobileNav } from './mobile-nav'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { cn } from '@/lib/utils'
@@ -25,7 +25,7 @@ export function Header({ className }: HeaderProps) {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-6">
-            <Navigation />
+            <NavigationMenu />
             <ThemeToggle />
           </div>
 
