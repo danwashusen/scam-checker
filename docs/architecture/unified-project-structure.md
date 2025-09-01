@@ -68,13 +68,24 @@ scam-checker/
 ├── tests/                            # Test files
 │   ├── __mocks__/                    # Mock implementations
 │   ├── unit/                         # Unit tests
+│   │   ├── helpers/                  # Jest Config and API testing utilities
 │   │   ├── components/               # Component tests
 │   │   ├── lib/                      # Utility function tests
+│   │   ├── services/                 # Service unit tests
 │   │   └── api/                      # API route tests
 │   ├── integration/                  # Integration tests
-│   │   └── analysis-flow.test.ts     # End-to-end analysis tests
-│   └── e2e/                         # End-to-end tests (Cypress)
-│       └── analysis-workflow.cy.ts   # Complete user workflow tests
+│   │   ├── helpers/                  # Jest Config and API testing utilities
+│   │   ├── api/                      # API endpoint integration tests
+│   │   └── services/                 # Service integration tests
+│   └── e2e/                          # End-to-end tests
+│       ├── api/                      # API endpoint E2E tests
+│       │   └── helpers/              # Jest Config and API testing utilities
+│       ├── user-flows/               # Browser-based user journey tests
+│       │   └── helpers/              # Jest Config and API testing utilities
+│       ├── cross-browser/            # Browser compatibility tests
+│       │   └── helpers/              # Jest Config and API testing utilities
+│       └── services/                 # Real external service tests
+│       │   └── helpers/              # Jest Config and API testing utilities
 │
 ├── infrastructure/                   # Infrastructure as Code
 │   ├── aws/                          # AWS-specific infrastructure

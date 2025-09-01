@@ -181,9 +181,9 @@ export class ScoreNormalizer {
     let normalizedScore: number
     
     if (factorType === 'domain_age') {
-      // For domain age, newer (lower age) = higher risk
-      // Invert the mapping: age 0 days = score 100, age 365+ days = score 0
-      normalizedScore = 100 - ((clampedScore - range.min) / (range.max - range.min)) * 100
+      // For domain age, older (higher age) = safer (higher safety score)
+      // Direct mapping: age 0 days = score 0 (unsafe), age 1825+ days = score 100 (safe)
+      normalizedScore = ((clampedScore - range.min) / (range.max - range.min)) * 100
     } else {
       // For other factors, higher score = higher risk
       normalizedScore = ((clampedScore - range.min) / (range.max - range.min)) * 100

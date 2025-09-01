@@ -8,7 +8,6 @@ Each component handles a specific part of the analysis workflow:
 - **url-input-form.tsx**: URL input and validation
 - **risk-display.tsx**: Risk score and level visualization
 - **technical-details.tsx**: Technical analysis details
-- **explanation-panel.tsx**: Risk explanation and reasoning
 
 ## Conventions
 - **Business Logic**: Use custom hooks for analysis state management

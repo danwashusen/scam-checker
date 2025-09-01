@@ -48,6 +48,7 @@ const customJestConfig = {
     '<rootDir>/node_modules/',
     '<rootDir>/.next/',
     '<rootDir>/tests/e2e/',
+    '<rootDir>/tests/performance/',
   ],
 
   // Transform configuration

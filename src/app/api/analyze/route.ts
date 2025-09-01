@@ -282,9 +282,28 @@ async function generateAnalysisWithScoringCalculator(analysis: URLAnalysisResult
           processingTimeMs: 100,
           fromCache: whoisResult.fromCache
         }
+      } else {
+        // WHOIS lookup failed, set error information
+        domainAge = {
+          ageInDays: null,
+          registrationDate: null,
+          registrar: null,
+          analysis: null,
+          fromCache: false,
+          error: whoisResult.error?.message || 'WHOIS lookup failed'
+        }
       }
     } catch (error) {
       services.logger.warn('WHOIS lookup error', { error: error as Error })
+      // Handle WHOIS exception
+      domainAge = {
+        ageInDays: null,
+        registrationDate: null,
+        registrar: null,
+        analysis: null,
+        fromCache: false,
+        error: error instanceof Error ? error.message : 'WHOIS lookup error'
+      }
     }
   }
 
@@ -307,9 +326,30 @@ async function generateAnalysisWithScoringCalculator(analysis: URLAnalysisResult
           processingTimeMs: 100,
           fromCache: sslResult.fromCache
         }
+      } else {
+        // SSL analysis failed, set error information
+        sslCertificate = {
+          certificateType: null,
+          certificateAuthority: null,
+          daysUntilExpiry: null,
+          issuedDate: null,
+          analysis: null,
+          fromCache: false,
+          error: sslResult.error?.message || 'SSL certificate analysis failed'
+        }
       }
     } catch (error) {
       services.logger.warn('SSL analysis error', { error: error as Error })
+      // Handle unexpected SSL errors
+      sslCertificate = {
+        certificateType: null,
+        certificateAuthority: null,
+        daysUntilExpiry: null,
+        issuedDate: null,
+        analysis: null,
+        fromCache: false,
+        error: error instanceof Error ? error.message : 'Unexpected SSL certificate analysis error'
+      }
     }
   }
 
@@ -336,6 +376,113 @@ async function generateAnalysisWithScoringCalculator(analysis: URLAnalysisResult
     services.logger.warn('Reputation analysis error', { error: error as Error })
   }
 
+  // AI analysis
+  if (parsed && services.aiAnalyzer.isAvailable()) {
+    try {
+      const technicalContext: TechnicalAnalysisContext = {
+        domainAge: domainAge?.analysis ? {
+          ageInDays: domainAge.analysis.ageInDays,
+          registrationDate: domainAge.analysis.registrationDate?.toISOString() || null,
+          registrar: domainAge.analysis.registrar,
+        } : undefined,
+        sslCertificate: sslCertificate?.analysis ? {
+          certificateType: sslCertificate.analysis.certificateType,
+          certificateAuthority: sslCertificate.analysis.certificateAuthority?.name || null,
+          daysUntilExpiry: sslCertificate.analysis.daysUntilExpiry,
+          issuedDate: sslCertificate.analysis.issuedDate?.toISOString() || null,
+        } : undefined,
+        urlStructure: {
+          isIP: parsed.isIP,
+          subdomain: parsed.subdomain || undefined,
+          pathDepth: parsed.components.pathParts.length,
+          queryParamCount: parsed.components.queryParams.length,
+          hasHttps: analysis.final.startsWith('https:'),
+        },
+      }
+
+      const aiResult = await services.aiAnalyzer.analyzeURL(analysis.final, parsed, technicalContext)
+      
+      if (aiResult.success && aiResult.data) {
+        aiAnalysis = {
+          riskScore: aiResult.data.riskScore,
+          confidence: aiResult.data.confidence,
+          scamCategory: aiResult.data.scamCategory,
+          primaryRisks: aiResult.data.primaryRisks,
+          indicators: aiResult.data.indicators,
+          analysis: aiResult.data,
+          fromCache: aiResult.fromCache
+        }
+        
+        scoringInput.ai = {
+          analysis: aiResult.data,
+          processingTimeMs: 100,
+          fromCache: aiResult.fromCache
+        }
+
+        services.logger.info('AI analysis completed for scoring', {
+          url: analysis.final,
+          riskScore: aiResult.data.riskScore,
+          confidence: aiResult.data.confidence,
+          scamCategory: aiResult.data.scamCategory
+        })
+      } else {
+        // AI analysis failed, set error info
+        aiAnalysis = {
+          riskScore: 0,
+          confidence: 0,
+          scamCategory: 'unknown' as any,
+          primaryRisks: [],
+          indicators: [],
+          analysis: null,
+          fromCache: false,
+          error: aiResult.error?.message || 'AI analysis failed'
+        }
+        
+        services.logger.warn('AI analysis failed in scoring calculator', {
+          url: analysis.final,
+          success: aiResult.success,
+          error: aiResult.error ? { ...aiResult.error, name: 'AIServiceError' } as Error : undefined,
+          hasData: !!aiResult.data
+        })
+      }
+    } catch (error) {
+      // AI analysis exception, set error info
+      aiAnalysis = {
+        riskScore: 0,
+        confidence: 0,
+        scamCategory: 'unknown' as any,
+        primaryRisks: [],
+        indicators: [],
+        analysis: null,
+        fromCache: false,
+        error: error instanceof Error ? error.message : 'AI analysis error'
+      }
+      
+      services.logger.warn('AI analysis exception in scoring calculator', { 
+        url: analysis.final,
+        error: error as Error 
+      })
+    }
+  } else {
+    // AI is disabled
+    aiAnalysis = {
+      riskScore: 0,
+      confidence: 0,
+      scamCategory: 'unknown' as any,
+      primaryRisks: [],
+      indicators: [],
+      analysis: null,
+      fromCache: false,
+      error: 'AI analysis is disabled or not configured'
+    }
+    
+    services.logger.info('AI analysis skipped', {
+      url: analysis.final,
+      available: services.aiAnalyzer.isAvailable(),
+      config: services.aiAnalyzer.getConfig()
+    })
+  }
+
   // Use the corrected scoring calculator
   const scoringResult = await scoringCalculator.calculateScore(scoringInput)
   
@@ -346,8 +493,66 @@ async function generateAnalysisWithScoringCalculator(analysis: URLAnalysisResult
     description: factor.description
   }))
 
-  // Generate explanation (simplified)
-  const explanation = `This URL has been classified as ${scoringResult.riskLevel} risk based on our comprehensive analysis. Final safety score: ${scoringResult.finalScore}/100.`
+  // Generate detailed explanation
+  let explanation = `This URL has been classified as ${scoringResult.riskLevel} risk based on our comprehensive analysis. Final safety score: ${scoringResult.finalScore}/100.`
+  
+  // Add SSL-specific details if relevant
+  if (sslCertificate?.analysis) {
+    const ssl = sslCertificate.analysis
+    if (ssl.daysUntilExpiry !== null && ssl.daysUntilExpiry < 0) {
+      explanation += ` The SSL certificate has expired, which is a significant security risk.`
+    } else if (ssl.daysUntilExpiry !== null && ssl.daysUntilExpiry <= 30) {
+      explanation += ` The SSL certificate expires in ${ssl.daysUntilExpiry} days.`
+    }
+    if (ssl.certificateType === 'self-signed') {
+      explanation += ` The site uses a self-signed SSL certificate, which increases security risk.`
+    }
+  } else if (sslCertificate?.error) {
+    explanation += ` SSL certificate analysis was not available: ${sslCertificate.error}.`
+  }
+  
+  // Add domain age details if relevant
+  if (domainAge?.analysis) {
+    const ageInDays = domainAge.analysis.ageInDays
+    if (ageInDays !== null) {
+      if (ageInDays < 30) {
+        explanation += ` The domain was registered very recently (${ageInDays} days ago), which increases risk.`
+      } else if (ageInDays < 365) {
+        explanation += ` The domain was registered ${ageInDays} days ago.`
+      } else {
+        const years = Math.round(ageInDays / 365 * 10) / 10
+        explanation += ` The domain has been registered for ${years} years, indicating established presence.`
+      }
+    }
+  }
+  
+  // Add AI analysis details if relevant
+  if (aiAnalysis?.analysis) {
+    const ai = aiAnalysis.analysis
+    if (ai.confidence > 50) {
+      if (ai.scamCategory !== 'legitimate') {
+        explanation += ` AI analysis identified this as a potential ${ai.scamCategory.replace('_', ' ')} scam with ${ai.confidence}% confidence.`
+        
+        // Add primary risks
+        if (ai.primaryRisks.length > 0) {
+          const primaryRisk = ai.primaryRisks[0]
+          explanation += ` Primary AI-detected concern: ${primaryRisk.toLowerCase()}.`
+        }
+        
+        // Add indicators
+        if (ai.indicators.length > 0) {
+          const topIndicators = ai.indicators.slice(0, 2).map(i => i.toLowerCase()).join(' and ')
+          explanation += ` AI detected indicators include: ${topIndicators}.`
+        }
+      } else if (ai.confidence > 80) {
+        explanation += ` AI analysis confirms this appears to be a legitimate URL with ${ai.confidence}% confidence.`
+      }
+    } else {
+      explanation += ` AI analysis was inconclusive with ${ai.confidence}% confidence.`
+    }
+  } else if (aiAnalysis?.error) {
+    explanation += ` AI-powered risk analysis was not available.`
+  }
   
   return {
     url: analysis.final,
@@ -957,23 +1162,23 @@ function generateExplanation(
 
   // Add AI analysis context
   if (aiAnalysis?.analysis && aiAnalysis.analysis.confidence > 50) {
-    if (aiAnalysis.scamCategory !== 'legitimate') {
-      explanation += `AI analysis identified this as a potential ${aiAnalysis.scamCategory.replace('_', ' ')} scam with ${aiAnalysis.confidence}% confidence. `
+    if (aiAnalysis.analysis.scamCategory !== 'legitimate') {
+      explanation += `AI analysis identified this as a potential ${aiAnalysis.analysis.scamCategory.replace('_', ' ')} scam with ${aiAnalysis.analysis.confidence}% confidence. `
       
-      if (aiAnalysis.primaryRisks.length > 0) {
-        const primaryRisk = aiAnalysis.primaryRisks[0]
+      if (aiAnalysis.analysis.primaryRisks.length > 0) {
+        const primaryRisk = aiAnalysis.analysis.primaryRisks[0]
         explanation += `Primary AI-detected concern: ${primaryRisk.toLowerCase()}. `
       }
-    } else if (aiAnalysis.confidence > 80) {
-      explanation += `AI analysis confirms this appears to be a legitimate URL with ${aiAnalysis.confidence}% confidence. `
+    } else if (aiAnalysis.analysis.confidence > 80) {
+      explanation += `AI analysis confirms this appears to be a legitimate URL with ${aiAnalysis.analysis.confidence}% confidence. `
     }
     
-    if (aiAnalysis.indicators.length > 0 && aiAnalysis.scamCategory !== 'legitimate') {
-      const topIndicators = aiAnalysis.indicators.slice(0, 2).map(i => i.toLowerCase()).join(' and ')
+    if (aiAnalysis.analysis.indicators.length > 0 && aiAnalysis.analysis.scamCategory !== 'legitimate') {
+      const topIndicators = aiAnalysis.analysis.indicators.slice(0, 2).map(i => i.toLowerCase()).join(' and ')
       explanation += `AI detected indicators include: ${topIndicators}. `
     }
   } else if (aiAnalysis?.analysis && aiAnalysis.analysis.confidence <= 50) {
-    explanation += `AI analysis was inconclusive with ${aiAnalysis.confidence}% confidence. `
+    explanation += `AI analysis was inconclusive with ${aiAnalysis.analysis.confidence}% confidence. `
   } else if (aiAnalysis?.error) {
     explanation += 'AI-powered risk analysis was not available. '
   }

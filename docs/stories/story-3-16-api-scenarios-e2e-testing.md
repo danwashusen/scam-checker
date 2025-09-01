@@ -1,4 +1,4 @@
-# Story 3.16: API Scenarios E2E Testing
+# Story 3-16: API Scenarios E2E Testing
 
 ## Status
 Draft

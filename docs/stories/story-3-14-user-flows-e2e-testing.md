@@ -1,4 +1,4 @@
-# Story 3.14: User Flows E2E Testing
+# Story 3-14: User Flows E2E Testing
 
 ## Status
 Draft

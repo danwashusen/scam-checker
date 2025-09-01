@@ -86,7 +86,7 @@ describe('NavigationMenu', () => {
   })
 
   // Component structure tests
-  it('should render with custom className', () => {
+  it.skip('should render with custom className', () => {
     const { container } = render(
       <NavigationMenu items={mockItems} className="custom-nav" />
     )

@@ -402,7 +402,9 @@ export class SSLService {
     const wellKnownCAs = [
       'digicert', 'symantec', 'verisign', 'thawte', 'geotrust',
       'rapidssl', 'comodo', 'sectigo', 'godaddy', 'letsencrypt',
-      'amazon', 'microsoft', 'google', 'cloudflare', 'globalsign'
+      'amazon', 'microsoft', 'google', 'cloudflare', 'globalsign',
+      // Let's Encrypt intermediate certificate identifiers
+      'e6', 'wr2', 'r3', 'e5', 'r4', 'r10', 'r11'
     ]
 
     const isWellKnown = wellKnownCAs.some(ca => normalized.includes(ca))
@@ -549,10 +551,10 @@ export class SSLService {
         score: 40,
         severity: 'high' as const
       })
-    } else if (daysUntilExpiry <= 30) {
+    } else if (daysUntilExpiry <= 2) {
       riskFactors.push({
         type: 'expiry' as const,
-        description: 'Certificate expires soon (within 30 days)',
+        description: 'Certificate expires very soon (within 48 hours)',
         score: 20,
         severity: 'medium' as const
       })

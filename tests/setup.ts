@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom'
+import React from 'react'
 
 // Mock Next.js router
 jest.mock('next/router', () => ({
@@ -32,6 +33,15 @@ jest.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(),
   usePathname: () => '/',
 }))
+
+// Mock Next.js Link component to prevent intersection observer issues
+jest.mock('next/link', () => {
+  const MockedLink = ({ children, ...props }: any) => {
+    return React.createElement('a', props, children)
+  }
+  MockedLink.displayName = 'Link'
+  return MockedLink
+})
 
 // Mock environment variables
 Object.defineProperty(process.env, 'NODE_ENV', { value: 'test' })

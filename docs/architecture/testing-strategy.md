@@ -14,40 +14,93 @@ Frontend Unit (30%)  Backend Unit (30%)
 
 We use a dedicated top-level `tests/` directory with clear separation of concerns and consistent naming.
 
-### Directory Structure
-```
-tests/
-├── __mocks__/                   # Mock implementations
-├── unit/                        # Unit tests
-│   ├── components/              # Frontend component tests
-│   ├── services/                # Backend service tests
-│   ├── utils/                   # Utility function tests
-│   └── lib/                     # Library tests
-├── integration/                 # Integration tests
-│   ├── api/                     # API endpoint tests
-│   ├── services/                # Service integration tests
-│   └── workflows/               # End-to-end workflow tests
-└── e2e/                         # End-to-end browser tests
-    ├── user-flows/              # Complete user journey tests
-    ├── api-scenarios/           # API scenario tests
-    ├── cross-browser/           # Browser compatibility tests
-    └── services/                # Real external service integration tests
-```
-
 ### Test Types and Locations
 
 - Unit tests: `tests/unit/`
 - Integration tests: `tests/integration/`
-- E2E UI tests: `tests/e2e/`
+- E2E API tests: `tests/e2e/api/`
+- E2E UI tests: `tests/e2e/user-flows/`
 - E2E Service tests: `tests/e2e/services/`
+- Performance tests: `tests/performance/`
 
 ### File Naming Conventions
 
 - Unit tests: `*.test.ts` or `*.spec.ts`
 - Integration tests: `*.integration.test.ts`
-- E2E tests: `*.e2e.test.ts`
+- E2E tests: `*.e2e.ts` or `*.e2e.test.ts`
+- Performance tests: `*.performance.ts` or `*.performance.test.ts`
 
 Coverage target: 80% minimum across all test types
+
+## API Endpoint E2E Testing Strategy
+
+### Purpose
+E2E API tests verify the complete flow of API endpoints with real external service integrations. These tests ensure that the API routes work correctly end-to-end without mocks, providing confidence in production-like scenarios.
+
+### Key Characteristics
+- **Real API calls**: No mocks - uses actual external services
+- **Complete validation**: Verifies entire request/response flow
+- **Flexible debugging**: Test any URL via environment variables
+- **Performance tracking**: Monitors response times
+- **Error handling**: Tests various failure scenarios
+
+### Test Coverage Areas
+
+#### Basic API Tests
+- Request/response format validation
+- Proper HTTP status codes
+- Content-Type headers
+- CORS configuration
+
+#### Complete Analysis Tests
+- Analysis of known clean URLs (e.g., google.com, github.com)
+- Analysis of suspicious URL patterns
+- Verification of complete response structure including:
+  - Domain age information (WHOIS)
+  - SSL certificate details
+  - Reputation data
+  - AI analysis results (when configured)
+  - Risk scoring calculations
+
+#### Edge Cases and Error Handling
+- Invalid URL formats
+- Missing URL in request body
+- Malformed JSON requests
+- Timeout handling
+- Partial service failures
+- Rate limiting behavior
+
+#### Performance Tests
+- Total analysis time measurement
+- Response time validation
+- Caching effectiveness for repeated requests
+
+### Environment Variables for API E2E Tests
+```bash
+# Required for full testing
+GOOGLE_SAFE_BROWSING_API_KEY=xxx
+OPENAI_API_KEY=xxx  # Optional for AI analysis
+
+# Optional for debugging
+TEST_URL=https://example.com  # Custom URL to test
+DEBUG_E2E=true  # Enable verbose logging
+API_BASE_URL=http://localhost:3000  # Override API base URL
+```
+
+### Test Execution Commands
+```bash
+# Run all API E2E tests
+npm run test:e2e:api
+
+# Test with custom URL
+TEST_URL=https://suspicious-site.com npm run test:e2e:api
+
+# Watch mode for development
+npm run test:e2e:api:watch
+
+# Debug mode with verbose output
+DEBUG_E2E=true npm run test:e2e:api
+```
 
 ## External Service Integration Testing Strategy
 

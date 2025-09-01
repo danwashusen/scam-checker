@@ -19,8 +19,11 @@ npm run dev
 npm run test              # All tests
 npm run test:unit         # Unit tests only
 npm run test:integration  # Integration tests (mocked external services)
-npm run test:e2e         # E2E UI tests (Playwright)
+npm run test:e2e         # All E2E tests
+npm run test:e2e:api     # E2E API endpoint tests (real external APIs)
+npm run test:e2e:api:watch # E2E API tests in watch mode
 npm run test:e2e:services # E2E service tests (real external APIs)
+npm run test:e2e:ui      # E2E UI tests (Playwright/Cypress)
 
 # Build commands
 npm run build         # Build frontend
@@ -28,6 +31,36 @@ npm run build:lambda  # Build Lambda functions
 ```
 
 ## Development Process Requirements
+
+### API Endpoint Development
+
+When developing or modifying API endpoints (e.g., `/api/analyze`):
+
+1. **Unit Tests First**: Write comprehensive unit tests with mocked dependencies
+   - Mock all service calls and external dependencies
+   - Test request validation and error handling
+   - Test response formatting and status codes
+   - Achieve minimum 80% test coverage
+
+2. **Integration Tests**: Create integration tests in `tests/integration/api/`
+   - Test endpoint with mocked external services
+   - Verify complete request/response flow
+   - Test middleware integration (auth, rate limiting, etc.)
+
+3. **E2E API Tests**: Create E2E tests in `tests/e2e/api/`
+   - Test file naming: `{endpoint-name}-route.e2e.ts`
+   - **Purpose**: Verify complete endpoint functionality with real services
+   - **Scope**: Full end-to-end testing without mocks
+   - **Requirements**:
+     - Real external service integration
+     - Complete response validation
+     - Performance measurement
+     - Error scenario handling
+
+4. **Debugging Support**: Enable flexible debugging via environment variables
+   - `TEST_URL`: Test specific URLs
+   - `DEBUG_E2E`: Enable verbose logging
+   - `API_BASE_URL`: Override API endpoint location
 
 ### External Service Integration Development
 

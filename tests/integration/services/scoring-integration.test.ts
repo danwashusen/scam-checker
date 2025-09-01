@@ -422,8 +422,18 @@ describe('Scoring System Integration Tests', () => {
       const input = createMockScoringInput('low-risk')
       const result = await scoringCalculator.calculateScore(input)
 
+      // Debug output to understand scoring
+      if (result.riskLevel !== 'low') {
+        console.log('Low-risk test failed:', {
+          finalScore: result.finalScore,
+          riskLevel: result.riskLevel,
+          breakdown: result.breakdown,
+          factors: result.riskFactors.map(f => ({ type: f.type, score: f.score, weight: f.weight }))
+        })
+      }
+
       expect(result.riskLevel).toBe('low')
-      expect(result.finalScore).toBeLessThan(40) // Allow some margin
+      expect(result.finalScore).toBeGreaterThanOrEqual(67) // Safety score >= 67 = low risk
       expect(result.confidence).toBeGreaterThan(0.5) // Minimum confidence
       expect(result.riskFactors).toHaveLength(4)
       expect(result.metadata.missingFactors).toHaveLength(0)
@@ -434,7 +444,7 @@ describe('Scoring System Integration Tests', () => {
       const result = await scoringCalculator.calculateScore(input)
 
       expect(result.riskLevel).toBe('high')
-      expect(result.finalScore).toBeGreaterThanOrEqual(60) // Allow some margin
+      expect(result.finalScore).toBeLessThan(34) // Safety score < 34 = high risk
       expect(result.confidence).toBeGreaterThan(0.5)
       expect(result.riskFactors.every(f => f.available)).toBe(true)
     })
@@ -443,9 +453,9 @@ describe('Scoring System Integration Tests', () => {
       const input = createMockScoringInput('medium-risk')
       const result = await scoringCalculator.calculateScore(input)
 
-      expect(['medium', 'high']).toContain(result.riskLevel) // Could be either due to weighting
-      expect(result.finalScore).toBeGreaterThan(25)
-      expect(result.finalScore).toBeLessThan(85)
+      expect(result.riskLevel).toBe('medium')
+      expect(result.finalScore).toBeGreaterThanOrEqual(34) // Safety score 34-66 = medium risk
+      expect(result.finalScore).toBeLessThan(67)
       expect(result.confidence).toBeGreaterThan(0.5)
     })
 
@@ -453,9 +463,9 @@ describe('Scoring System Integration Tests', () => {
       const input = createMockScoringInput('mixed')
       const result = await scoringCalculator.calculateScore(input)
 
-      // Mixed scenario should be medium or high due to domain age
-      expect(['medium', 'high']).toContain(result.riskLevel)
-      expect(result.finalScore).toBeGreaterThan(30)
+      // Mixed scenario should be medium or low (since one factor is very safe)
+      expect(['medium', 'low']).toContain(result.riskLevel)
+      expect(result.finalScore).toBeGreaterThan(30) // Should have moderate safety score
       expect(result.confidence).toBeGreaterThan(0.5)
       
       // Should have detailed breakdown
