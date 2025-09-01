@@ -73,6 +73,7 @@ export const E2E_TEST_CONFIG: E2ETestConfig = {
       tech: 'stackoverflow.com'
     },
     testUrls: {
+      legitimate: 'https://www.amazon.com',
       ecommerce: 'https://www.amazon.com/dp/B08N5WRWNW',
       news: 'https://www.cnn.com/2024/01/01/test-article',
       suspicious: 'https://definitely-not-amazon.com/get-free-money',

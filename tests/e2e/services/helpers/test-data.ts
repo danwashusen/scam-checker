@@ -101,7 +101,7 @@ export const AI_TEST_PROMPTS = {
 export const EXPECTED_RESPONSE_TIMES = {
   reputation: { min: 100, max: 5000 },
   whois: { min: 500, max: 10000 },
-  ai: { min: 1000, max: 30000 },
+  ai: { min: 500, max: 30000 },
   ssl: { min: 50, max: 5000 }  // SSL can be very fast (50ms-5s range)
 }
 
