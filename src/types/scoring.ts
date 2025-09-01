@@ -47,9 +47,9 @@ export interface ScoringConfig {
     ai_analysis: number // Default: 15%
   }
   thresholds: {
-    lowRiskMax: number // Default: 30
-    mediumRiskMax: number // Default: 69
-    highRiskMin: number // Default: 70
+    safeMin: number      // Default: 67 - minimum score for safe
+    cautionMin: number   // Default: 34 - minimum score for caution
+    dangerMax: number    // Default: 33 - maximum score for danger
   }
   missingDataStrategy: 'redistribute' | 'penalty' | 'default'
   confidenceAdjustment: {
@@ -230,9 +230,9 @@ export const DEFAULT_SCORING_CONFIG: ScoringConfig = {
     ai_analysis: 0.15 // 15% - AI-based content analysis
   },
   thresholds: {
-    lowRiskMax: 30,
-    mediumRiskMax: 69,
-    highRiskMin: 70
+    safeMin: 67,      // 67-100 = safe (green)
+    cautionMin: 34,   // 34-66 = caution (orange)  
+    dangerMax: 33     // 0-33 = danger (red)
   },
   missingDataStrategy: 'redistribute',
   confidenceAdjustment: {

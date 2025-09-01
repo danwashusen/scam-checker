@@ -5,12 +5,31 @@ import { sanitizeURL } from '../../../lib/validation/url-sanitizer'
 import { sanitizeForLogging } from '../../../lib/validation/url-sanitizer'
 import { validateAnalysisRequest, formatValidationError } from '../../../lib/validation/schemas'
 import { ServiceBuilder } from '../../../lib/services/service-builder'
+import { ScoringCalculator } from '../../../lib/scoring/scoring-calculator'
 import type { AnalysisServices } from '../../../types/services'
 import type { URLAnalysisResult, URLValidationOptions, SanitizationOptions } from '../../../types/url'
 import type { DomainAgeAnalysis } from '../../../types/whois'
 import type { ReputationAnalysis } from '../../../types/reputation'
 import type { SSLCertificateAnalysis } from '../../../types/ssl'
 import type { AIAnalysisResult, TechnicalAnalysisContext } from '../../../types/ai'
+import type { ScoringInput, RiskLevel } from '../../../types/scoring'
+import type { RiskStatus } from '../../../types/analysis-display'
+
+/**
+ * Maps backend RiskLevel to frontend RiskStatus
+ * CORRECTED: Now properly maps safety scores to frontend status
+ * - low risk (67-100 safety score) → safe status
+ * - medium risk (34-66 safety score) → caution status  
+ * - high risk (0-33 safety score) → danger status
+ */
+function mapRiskLevelToStatus(riskLevel: RiskLevel): RiskStatus {
+  switch (riskLevel) {
+    case 'low':    return 'safe'     // 67-100 safety score
+    case 'medium': return 'caution'  // 34-66 safety score  
+    case 'high':   return 'danger'   // 0-33 safety score
+    default:       return 'danger'   // Fallback for safety
+  }
+}
 
 interface RiskFactor {
   type: string
@@ -21,7 +40,8 @@ interface RiskFactor {
 interface AnalysisResult {
   url: string
   riskScore: number
-  riskLevel: 'low' | 'medium' | 'high'
+  riskLevel: 'low' | 'medium' | 'high'  // Backend risk level
+  riskStatus: RiskStatus                // Frontend status mapping
   factors: RiskFactor[]
   explanation: string
   timestamp: string
@@ -132,8 +152,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Generate comprehensive analysis result including WHOIS and SSL data
-    const mockResult: AnalysisResult = await generateAnalysisWithAll(urlAnalysis, services)
+    // Generate comprehensive analysis result using proper scoring calculator
+    const mockResult: AnalysisResult = await generateAnalysisWithScoringCalculator(urlAnalysis, services)
     
     const finalProcessingTime = Date.now() - requestStartTime
     
@@ -230,7 +250,123 @@ async function performURLAnalysis(inputUrl: string, options?: { validation?: URL
   }
 }
 
-async function generateAnalysisWithAll(analysis: URLAnalysisResult, services: AnalysisServices): Promise<AnalysisResult> {
+async function generateAnalysisWithScoringCalculator(analysis: URLAnalysisResult, services: AnalysisServices): Promise<AnalysisResult> {
+  const { parsed } = analysis
+  const scoringCalculator = new ScoringCalculator()
+  
+  // Build ScoringInput for the proper scoring calculator
+  const scoringInput: ScoringInput = {
+    url: analysis.final
+  }
+  
+  let domainAge: AnalysisResult['domainAge'] = undefined
+  let sslCertificate: AnalysisResult['sslCertificate'] = undefined
+  let reputation: AnalysisResult['reputation'] = undefined
+  let aiAnalysis: AnalysisResult['aiAnalysis'] = undefined
+
+  // Collect analysis data for scoring input
+  if (parsed && !parsed.isIP) {
+    try {
+      const whoisResult = await services.whois.analyzeDomain(parsed)
+      if (whoisResult.success && whoisResult.data) {
+        const whoisAnalysisData = whoisResult.data
+        domainAge = {
+          ageInDays: whoisAnalysisData.ageInDays,
+          registrationDate: whoisAnalysisData.registrationDate?.toISOString() || null,
+          registrar: whoisAnalysisData.registrar,
+          analysis: whoisAnalysisData,
+          fromCache: whoisResult.fromCache
+        }
+        scoringInput.whois = {
+          analysis: whoisAnalysisData,
+          processingTimeMs: 100,
+          fromCache: whoisResult.fromCache
+        }
+      }
+    } catch (error) {
+      services.logger.warn('WHOIS lookup error', { error: error as Error })
+    }
+  }
+
+  // SSL analysis for HTTPS URLs
+  if (parsed && !parsed.isIP && analysis.final.startsWith('https:')) {
+    try {
+      const sslResult = await services.ssl.analyzeCertificate(parsed.hostname)
+      if (sslResult.success && sslResult.data) {
+        const sslAnalysisData = sslResult.data
+        sslCertificate = {
+          certificateType: sslAnalysisData.certificateType,
+          certificateAuthority: sslAnalysisData.certificateAuthority?.name || null,
+          daysUntilExpiry: sslAnalysisData.daysUntilExpiry,
+          issuedDate: sslAnalysisData.issuedDate?.toISOString() || null,
+          analysis: sslAnalysisData,
+          fromCache: sslResult.fromCache
+        }
+        scoringInput.ssl = {
+          analysis: sslAnalysisData,
+          processingTimeMs: 100,
+          fromCache: sslResult.fromCache
+        }
+      }
+    } catch (error) {
+      services.logger.warn('SSL analysis error', { error: error as Error })
+    }
+  }
+
+  // Reputation analysis
+  try {
+    const reputationResult = await services.reputation.analyzeURL(analysis.final)
+    if (reputationResult.success && reputationResult.data) {
+      const reputationAnalysisData = reputationResult.data
+      reputation = {
+        isClean: reputationAnalysisData.isClean,
+        riskLevel: reputationAnalysisData.riskLevel,
+        threatCount: reputationAnalysisData.threatMatches.length,
+        threatTypes: reputationAnalysisData.threatMatches.map(match => match.threatType),
+        analysis: reputationAnalysisData,
+        fromCache: reputationResult.fromCache
+      }
+      scoringInput.reputation = {
+        analysis: reputationAnalysisData,
+        processingTimeMs: 100,
+        fromCache: reputationResult.fromCache
+      }
+    }
+  } catch (error) {
+    services.logger.warn('Reputation analysis error', { error: error as Error })
+  }
+
+  // Use the corrected scoring calculator
+  const scoringResult = await scoringCalculator.calculateScore(scoringInput)
+  
+  // Build factors for backward compatibility
+  const factors = scoringResult.riskFactors.map(factor => ({
+    type: factor.type,
+    score: factor.score,
+    description: factor.description
+  }))
+
+  // Generate explanation (simplified)
+  const explanation = `This URL has been classified as ${scoringResult.riskLevel} risk based on our comprehensive analysis. Final safety score: ${scoringResult.finalScore}/100.`
+  
+  return {
+    url: analysis.final,
+    riskScore: scoringResult.finalScore, // Now using corrected safety score
+    riskLevel: scoringResult.riskLevel,   // Backend risk level ('low'|'medium'|'high')
+    riskStatus: mapRiskLevelToStatus(scoringResult.riskLevel), // Frontend status mapping
+    factors,
+    explanation,
+    timestamp: new Date().toISOString(),
+    domainAge,
+    sslCertificate,
+    reputation,
+    aiAnalysis,
+  }
+}
+
+// Keep the old function for reference but rename it
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+async function generateAnalysisWithAll_OLD(analysis: URLAnalysisResult, services: AnalysisServices): Promise<AnalysisResult> {
   const { parsed, sanitization } = analysis
   
   // Generate risk factors based on URL analysis
@@ -697,21 +833,26 @@ async function generateAnalysisWithAll(analysis: URLAnalysisResult, services: An
   // Normalize risk score (0-1 scale)
   const normalizedRiskScore = Math.min(Math.max(totalRiskScore, 0), 1)
   
-  // Determine risk level
-  let riskLevel: 'low' | 'medium' | 'high' = 'low'
-  if (normalizedRiskScore > 0.7) {
-    riskLevel = 'high'
-  } else if (normalizedRiskScore > 0.3) {
-    riskLevel = 'medium'
+  // Convert to safety score (0-100 scale where 100 = safest)
+  const safetyScore = Math.round((1 - normalizedRiskScore) * 100)
+  
+  // Determine risk level using corrected thresholds (Higher scores = safer)
+  let riskLevel: 'low' | 'medium' | 'high' = 'high' // Default to high risk
+  if (safetyScore >= 67) {
+    riskLevel = 'low'      // 67-100 = low risk (SAFE)
+  } else if (safetyScore >= 34) {
+    riskLevel = 'medium'   // 34-66 = medium risk (CAUTION)
   }
+  // 0-33 = high risk (DANGER) - already default
   
   // Generate explanation
   const explanation = generateExplanation(riskLevel, factors, analysis, domainAge, sslCertificate, reputation, aiAnalysis)
   
   return {
     url: analysis.final,
-    riskScore: normalizedRiskScore,
+    riskScore: safetyScore, // Now using safety score (0-100, higher = safer)
     riskLevel,
+    riskStatus: mapRiskLevelToStatus(riskLevel), // Frontend status mapping
     factors,
     explanation,
     timestamp: new Date().toISOString(),

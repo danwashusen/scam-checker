@@ -1,105 +1,73 @@
-'use client'
+"use client"
 
 import * as React from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Spinner } from '@/components/ui/spinner'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Button } from '@/components/ui/button'
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { 
-  Calendar, 
   Shield, 
   Server, 
   Lock, 
   AlertCircle,
   CheckCircle,
-  Clock
+  Clock,
+  Copy,
+  Eye,
+  Globe,
+  Brain
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { AnalysisResult } from '@/types/analysis-display'
 
-// Helper function to format dates consistently for SSR
-const formatDate = (dateString: string) => {
-  try {
-    const date = new Date(dateString)
-    // Use a consistent format that won't vary by locale/timezone
-    return date.toISOString().split('T')[0] // YYYY-MM-DD format
-  } catch {
-    return dateString
-  }
-}
-
-interface DomainAgeData {
-  createdDate: string
-  ageInDays: number
-  registrar: string
-  status: 'valid' | 'invalid' | 'unknown'
-}
-
-interface SSLCertificateData {
-  valid: boolean
-  issuer: string
-  validFrom: string
-  validTo: string
-  protocol: string
-}
-
-interface ReputationData {
-  score: number
-  sources: string[]
-  categories: string[]
-  lastChecked: string
-}
+// Legacy interfaces - keeping for now but migrating to new types
 
 interface TechnicalDetailsProps {
-  domainAge?: DomainAgeData | null
-  sslCertificate?: SSLCertificateData | null
-  reputation?: ReputationData | null
+  result?: AnalysisResult
   loading?: boolean
   className?: string
 }
 
-// Mock data for demonstration
-const mockData = {
-  domainAge: {
-    createdDate: '2020-03-15',
-    ageInDays: 1400,
-    registrar: 'Example Registrar Inc.',
-    status: 'valid'
-  },
-  sslCertificate: {
-    valid: true,
-    issuer: 'Let\'s Encrypt Authority X3',
-    validFrom: '2024-01-15',
-    validTo: '2024-04-15',
-    protocol: 'TLS 1.3'
-  },
-  reputation: {
-    score: 85,
-    sources: ['VirusTotal', 'Google Safe Browsing', 'Phishtank'],
-    categories: ['Clean', 'Not Malicious'],
-    lastChecked: '2024-01-20'
+// Component implementation continues...
+
+const CopyButton = ({ text }: { text: string }) => {
+  const [copied, setCopied] = React.useState(false)
+  
+  const copyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch (err) {
+      console.error('Failed to copy text: ', err)
+    }
   }
+  
+  return (
+    <Button 
+      variant="outline" 
+      size="sm" 
+      onClick={copyToClipboard}
+      className="h-6 px-2 text-xs"
+    >
+      <Copy className="h-3 w-3 mr-1" />
+      {copied ? 'Copied!' : 'Copy'}
+    </Button>
+  )
 }
 
 export function TechnicalDetails({
-  domainAge,
-  sslCertificate,
-  reputation,
+  result,
   loading = false,
   className,
 }: TechnicalDetailsProps) {
-  // Use mock data for demonstration when no real data is provided
-  const data = {
-    domainAge: domainAge || (loading ? null : mockData.domainAge),
-    sslCertificate: sslCertificate || (loading ? null : mockData.sslCertificate),
-    reputation: reputation || (loading ? null : mockData.reputation),
-  }
-
+  
   if (loading) {
     return (
-      <Card className={cn('w-full', className)}>
+      <Card className={cn('w-full', className)} data-testid="technical-view">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Spinner size="sm" />
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary" />
             Loading Technical Details...
           </CardTitle>
           <CardDescription>
@@ -121,10 +89,37 @@ export function TechnicalDetails({
     )
   }
 
-  const hasData = data.domainAge || data.sslCertificate || data.reputation
+  if (!result) {
+    return (
+      <Card className={cn('w-full', className)} data-testid="technical-view">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Server className="h-5 w-5" />
+            Technical Analysis
+          </CardTitle>
+          <CardDescription>
+            Detailed technical information about the domain and security
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8 text-muted-foreground">
+            <AlertCircle className="h-8 w-8 mx-auto mb-4 opacity-50" />
+            <p className="text-sm">
+              Technical analysis details will appear here after URL analysis is complete.
+            </p>
+            <p className="text-xs mt-2">
+              This component is ready for backend integration with existing analysis types.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  const technicalData = result.technicalData
 
   return (
-    <Card className={cn('w-full', className)}>
+    <Card className={cn('w-full', className)} data-testid="technical-view">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Server className="h-5 w-5" />
@@ -135,165 +130,253 @@ export function TechnicalDetails({
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {!hasData ? (
-          <div className="text-center py-8 text-muted-foreground">
-            <AlertCircle className="h-8 w-8 mx-auto mb-4 opacity-50" />
-            <p className="text-sm">
-              Technical analysis details will appear here after URL analysis is complete.
-            </p>
-            <p className="text-xs mt-2">
-              This component is ready for backend integration with existing analysis types.
-            </p>
-          </div>
-        ) : (
-          <Tabs defaultValue="domain" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="domain">Domain</TabsTrigger>
-              <TabsTrigger value="ssl">SSL</TabsTrigger>
-              <TabsTrigger value="reputation">Reputation</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="domain" className="space-y-4">
-              {data.domainAge ? (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4" />
-                    <span className="font-medium">Domain Information</span>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <div className="text-sm font-medium">Created Date</div>
-                      <div className="text-sm text-muted-foreground">
-                        {formatDate(data.domainAge.createdDate)}
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <div className="text-sm font-medium">Domain Age</div>
-                      <div className="text-sm text-muted-foreground">
-                        {Math.floor(data.domainAge.ageInDays / 365)} years, {data.domainAge.ageInDays % 365} days
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <div className="text-sm font-medium">Registrar</div>
-                      <div className="text-sm text-muted-foreground">
-                        {data.domainAge.registrar}
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <div className="text-sm font-medium">Status</div>
-                      <Badge variant={data.domainAge.status === 'valid' ? 'default' : 'destructive'}>
-                        {data.domainAge.status}
-                      </Badge>
-                    </div>
+        <Accordion type="multiple" className="w-full">
+          {/* Domain Age Section */}
+          <AccordionItem value="domain">
+            <AccordionTrigger className="hover:no-underline">
+              <div className="flex items-center gap-2">
+                <Globe className="h-4 w-4" />
+                Domain Information
+                <Badge variant="outline" className="ml-2">
+                  {technicalData.domainAge.ageInDays > 365 ? 'Established' : 'New'}
+                </Badge>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <div className="text-sm font-medium">Registration Date</div>
+                  <div className="text-sm text-muted-foreground">
+                    {technicalData.domainAge.registrationDate.toLocaleDateString()}
                   </div>
                 </div>
-              ) : (
-                <div className="text-sm text-muted-foreground">Domain information not available</div>
-              )}
-            </TabsContent>
+                
+                <div className="space-y-2">
+                  <div className="text-sm font-medium">Domain Age</div>
+                  <div className="text-sm text-muted-foreground">
+                    {Math.floor(technicalData.domainAge.ageInDays / 365)} years, {technicalData.domainAge.ageInDays % 365} days
+                  </div>
+                </div>
+                
+                {technicalData.domainAge.registrar && (
+                  <div className="space-y-2">
+                    <div className="text-sm font-medium">Registrar</div>
+                    <div className="text-sm text-muted-foreground">
+                      {technicalData.domainAge.registrar}
+                    </div>
+                  </div>
+                )}
+                
+                {technicalData.domainAge.expirationDate && (
+                  <div className="space-y-2">
+                    <div className="text-sm font-medium">Expiration Date</div>
+                    <div className="text-sm text-muted-foreground">
+                      {technicalData.domainAge.expirationDate.toLocaleDateString()}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </AccordionContent>
+          </AccordionItem>
 
-            <TabsContent value="ssl" className="space-y-4">
-              {data.sslCertificate ? (
-                <div className="space-y-4">
+          {/* SSL Certificate Section */}
+          <AccordionItem value="ssl">
+            <AccordionTrigger className="hover:no-underline">
+              <div className="flex items-center gap-2">
+                <Lock className="h-4 w-4" />
+                SSL Certificate
+                {technicalData.ssl.isValid ? (
+                  <Badge variant="default" className="ml-2">Valid</Badge>
+                ) : (
+                  <Badge variant="destructive" className="ml-2">Invalid</Badge>
+                )}
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <div className="text-sm font-medium">Status</div>
                   <div className="flex items-center gap-2">
-                    <Lock className="h-4 w-4" />
-                    <span className="font-medium">SSL Certificate</span>
-                    {data.sslCertificate.valid ? (
-                      <CheckCircle className="h-4 w-4 text-success" />
+                    {technicalData.ssl.isValid ? (
+                      <CheckCircle className="h-4 w-4 text-green-600" />
                     ) : (
-                      <AlertCircle className="h-4 w-4 text-destructive" />
+                      <AlertCircle className="h-4 w-4 text-red-600" />
                     )}
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <div className="text-sm font-medium">Status</div>
-                      <Badge variant={data.sslCertificate.valid ? 'default' : 'destructive'}>
-                        {data.sslCertificate.valid ? 'Valid' : 'Invalid'}
-                      </Badge>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <div className="text-sm font-medium">Protocol</div>
-                      <div className="text-sm text-muted-foreground">
-                        {data.sslCertificate.protocol}
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <div className="text-sm font-medium">Issuer</div>
-                      <div className="text-sm text-muted-foreground">
-                        {data.sslCertificate.issuer}
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <div className="text-sm font-medium">Valid Until</div>
-                      <div className="text-sm text-muted-foreground">
-                        {formatDate(data.sslCertificate.validTo)}
-                      </div>
-                    </div>
+                    <span className="text-sm text-muted-foreground">
+                      {technicalData.ssl.isValid ? 'Valid Certificate' : 'Invalid Certificate'}
+                    </span>
                   </div>
                 </div>
-              ) : (
-                <div className="text-sm text-muted-foreground">SSL information not available</div>
-              )}
-            </TabsContent>
+                
+                <div className="space-y-2">
+                  <div className="text-sm font-medium">Issuer</div>
+                  <div className="text-sm text-muted-foreground">
+                    {technicalData.ssl.issuer}
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <div className="text-sm font-medium">Valid From</div>
+                  <div className="text-sm text-muted-foreground">
+                    {technicalData.ssl.validFrom.toLocaleDateString()}
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <div className="text-sm font-medium">Valid To</div>
+                  <div className="text-sm text-muted-foreground">
+                    {technicalData.ssl.validTo.toLocaleDateString()}
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <div className="text-sm font-medium">Algorithm</div>
+                  <div className="text-sm text-muted-foreground">
+                    {technicalData.ssl.algorithm}
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <div className="text-sm font-medium">Key Size</div>
+                  <div className="text-sm text-muted-foreground">
+                    {technicalData.ssl.keySize} bits
+                  </div>
+                </div>
+              </div>
+            </AccordionContent>
+          </AccordionItem>
 
-            <TabsContent value="reputation" className="space-y-4">
-              {data.reputation ? (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <Shield className="h-4 w-4" />
-                    <span className="font-medium">Reputation Analysis</span>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">Reputation Score</span>
-                      <Badge variant={data.reputation.score > 80 ? 'default' : data.reputation.score > 50 ? 'secondary' : 'destructive'}>
-                        {data.reputation.score}%
-                      </Badge>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <div className="text-sm font-medium">Sources Checked</div>
-                      <div className="flex flex-wrap gap-2">
-                        {data.reputation.sources.map((source: string) => (
-                          <Badge key={source} variant="outline">
-                            {source}
-                          </Badge>
-                        ))}
+          {/* Reputation Data Section */}
+          <AccordionItem value="reputation">
+            <AccordionTrigger className="hover:no-underline">
+              <div className="flex items-center gap-2">
+                <Shield className="h-4 w-4" />
+                Reputation Analysis
+                <Badge 
+                  variant={technicalData.reputation.overallRating === 'safe' ? 'default' : 
+                          technicalData.reputation.overallRating === 'suspicious' ? 'outline' : 
+                          technicalData.reputation.overallRating === 'malicious' ? 'destructive' : 'secondary'}
+                  className="ml-2"
+                >
+                  {technicalData.reputation.overallRating}
+                </Badge>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="space-y-4">
+              <div className="space-y-4">
+                <div>
+                  <div className="text-sm font-medium mb-2">Security Sources</div>
+                  <div className="grid grid-cols-1 gap-2">
+                    {technicalData.reputation.sources.map((source, index) => (
+                      <div key={index} className="flex items-center justify-between p-2 bg-muted rounded">
+                        <div>
+                          <div className="text-sm font-medium">{source.name}</div>
+                          <div className="text-xs text-muted-foreground">{source.category}</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-sm font-medium">{source.score}/100</div>
+                          <div className="text-xs text-muted-foreground">
+                            {source.lastUpdated.toLocaleDateString()}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <div className="text-sm font-medium">Categories</div>
-                      <div className="flex flex-wrap gap-2">
-                        {data.reputation.categories.map((category: string) => (
-                          <Badge key={category} variant="secondary">
-                            {category}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Clock className="h-4 w-4" />
-                      <span>Last checked: {formatDate(data.reputation.lastChecked)}</span>
-                    </div>
+                    ))}
                   </div>
                 </div>
-              ) : (
-                <div className="text-sm text-muted-foreground">Reputation information not available</div>
-              )}
-            </TabsContent>
-          </Tabs>
-        )}
+                
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Clock className="h-4 w-4" />
+                  <span>Last checked: {technicalData.reputation.lastChecked.toLocaleDateString()}</span>
+                </div>
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+
+          {/* AI Analysis Section */}
+          <AccordionItem value="ai">
+            <AccordionTrigger className="hover:no-underline">
+              <div className="flex items-center gap-2">
+                <Brain className="h-4 w-4" />
+                AI Content Analysis
+                <Badge variant="outline" className="ml-2">
+                  {Math.round(technicalData.ai.confidence * 100)}% confidence
+                </Badge>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="space-y-4">
+              <div className="space-y-4">
+                <div>
+                  <div className="text-sm font-medium mb-2">Analysis Summary</div>
+                  <p className="text-sm text-muted-foreground">{technicalData.ai.summary}</p>
+                </div>
+                
+                <div>
+                  <div className="text-sm font-medium mb-2">Content Score</div>
+                  <div className="text-sm text-muted-foreground">
+                    {technicalData.ai.contentScore}/100
+                  </div>
+                </div>
+                
+                {technicalData.ai.patterns.length > 0 && (
+                  <div>
+                    <div className="text-sm font-medium mb-2">Detected Patterns</div>
+                    <div className="space-y-2">
+                      {technicalData.ai.patterns.map((pattern, index) => (
+                        <div key={index} className="p-2 bg-muted rounded">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-sm font-medium">{pattern.type}</span>
+                            <Badge variant={pattern.severity === 'high' ? 'destructive' : pattern.severity === 'medium' ? 'outline' : 'secondary'}>
+                              {pattern.severity}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground">{pattern.description}</p>
+                          <div className="text-xs text-muted-foreground mt-1">
+                            Confidence: {Math.round(pattern.confidence * 100)}%
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {technicalData.ai.flags.length > 0 && (
+                  <div>
+                    <div className="text-sm font-medium mb-2">Security Flags</div>
+                    <div className="flex flex-wrap gap-1">
+                      {technicalData.ai.flags.map((flag, index) => (
+                        <Badge key={index} variant="outline" className="text-xs">
+                          {flag}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+
+          {/* Raw Data Section */}
+          <AccordionItem value="raw">
+            <AccordionTrigger className="hover:no-underline">
+              <div className="flex items-center gap-2">
+                <Eye className="h-4 w-4" />
+                Raw Analysis Data
+                <Badge variant="secondary" className="ml-2">JSON</Badge>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">Raw Analysis Response</span>
+                  <CopyButton text={JSON.stringify(technicalData.raw, null, 2)} />
+                </div>
+                <pre className="text-xs bg-muted p-3 rounded overflow-x-auto max-h-64 overflow-y-auto">
+                  <code>{JSON.stringify(technicalData.raw, null, 2)}</code>
+                </pre>
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
       </CardContent>
     </Card>
   )

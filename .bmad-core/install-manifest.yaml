@@ -1,9 +1,9 @@
 version: 4.40.1
-installed_at: '2025-08-31T00:16:59.564Z'
+installed_at: '2025-09-01T05:10:39.331Z'
 install_type: full
 agent: null
 ides_setup:
-  - claude-code
+  - cursor
 expansion_packs: []
 files:
   - path: .bmad-core/working-in-the-brownfield.md
@@ -16,7 +16,13 @@ files:
     hash: 39beb3516c070e2b
     modified: false
   - path: .bmad-core/core-config.yaml
-    hash: 4d6793f49354bbfc
+    hash: 9f27ef03a6fd4b74
+    modified: false
+  - path: .bmad-core/utils/workflow-management.md
+    hash: c2196880f2281f84
+    modified: false
+  - path: .bmad-core/utils/bmad-doc-template.md
+    hash: 34df6ead8b91abfc
     modified: false
   - path: .bmad-core/workflows/greenfield-ui.yaml
     hash: defde5d6bdcedd49
@@ -35,12 +41,6 @@ files:
     modified: false
   - path: .bmad-core/workflows/brownfield-fullstack.yaml
     hash: 60a703d65da43d27
-    modified: false
-  - path: .bmad-core/utils/workflow-management.md
-    hash: c2196880f2281f84
-    modified: false
-  - path: .bmad-core/utils/bmad-doc-template.md
-    hash: 34df6ead8b91abfc
     modified: false
   - path: .bmad-core/templates/story-tmpl.yaml
     hash: 11e79b87ff700c8f
@@ -100,7 +100,7 @@ files:
     hash: 5b981ff6f068ad21
     modified: false
   - path: .bmad-core/tasks/review-story-implementation.md
-    hash: 7f5094e9d483da12
+    hash: f6ee00cc3e18036f
     modified: false
   - path: .bmad-core/tasks/qa-gate.md
     hash: 924f7bcc61306314
@@ -127,13 +127,13 @@ files:
     hash: 98f8790d20e83cf3
     modified: false
   - path: .bmad-core/tasks/develop-story.md
-    hash: bc82d03f0b89424a
+    hash: b40bc8f5f211ad95
     modified: false
   - path: .bmad-core/tasks/create-next-story.md
     hash: 99e5cc3237a9cffd
     modified: false
   - path: .bmad-core/tasks/create-implementation-plan.md
-    hash: fce93f6fcd076e1e
+    hash: 84fe6423f3e59403
     modified: false
   - path: .bmad-core/tasks/create-doc.md
     hash: 0a6aeba58cd7a3e4
@@ -160,7 +160,7 @@ files:
     hash: d39118bf32237a21
     modified: false
   - path: .bmad-core/tasks/address-implementation-review.md
-    hash: f9487a5e30c6dca9
+    hash: aa57fe0289d9b634
     modified: false
   - path: .bmad-core/data/test-priorities-matrix.md
     hash: 1dd5698a46ab054e
@@ -184,7 +184,7 @@ files:
     hash: 0bc8a90678dba318
     modified: false
   - path: .bmad-core/checklists/story-dod-checklist.md
-    hash: df403478049b6958
+    hash: c9df09c1a9608234
     modified: false
   - path: .bmad-core/checklists/po-master-checklist.md
     hash: c46c67e6bf61b70e
@@ -217,10 +217,10 @@ files:
     hash: f72074f1f1354871
     modified: false
   - path: .bmad-core/agents/dev.md
-    hash: 96cdfd58bac4e2cf
+    hash: f47bedfd8593f10b
     modified: false
   - path: .bmad-core/agents/dev-junior.md
-    hash: e08f34eb4d0024f9
+    hash: 65c8138ac66e8660
     modified: false
   - path: .bmad-core/agents/bmad-orchestrator.md
     hash: 374701173ce61d73
@@ -247,41 +247,41 @@ files:
     hash: db5b0ff0a9c9c2e8
     modified: false
   - path: .bmad-core/agents/providers/README.md
-    hash: ac2af427f820a95a
+    hash: 0d74d20e640f9f9a
     modified: false
   - path: .bmad-core/agents/providers/claude/ux-expert.yaml
-    hash: f6b8a15cdd3030ad
+    hash: 0ae56ce5e46fa37c
     modified: false
   - path: .bmad-core/agents/providers/claude/sm.yaml
-    hash: 78005c9bfc0d57a3
+    hash: 29e0460d7bd2eca5
     modified: false
   - path: .bmad-core/agents/providers/claude/qa.yaml
-    hash: b48571c1bee9b237
+    hash: 182d60a022945b37
     modified: false
   - path: .bmad-core/agents/providers/claude/po.yaml
-    hash: 4cc357ba6041e44d
+    hash: dce39251a2719bbf
     modified: false
   - path: .bmad-core/agents/providers/claude/pm.yaml
-    hash: 91de8f766eddabac
+    hash: 438e8fd2e5593ec4
     modified: false
   - path: .bmad-core/agents/providers/claude/dev.yaml
-    hash: e20bdd190ebdc3b6
+    hash: 58e68d7082ab701a
     modified: false
   - path: .bmad-core/agents/providers/claude/dev-junior.yaml
-    hash: 69db8f1d4f1652a0
+    hash: b516a2c4917bfb69
     modified: false
   - path: .bmad-core/agents/providers/claude/bmad-orchestrator.yaml
-    hash: 97508765bc8290fc
+    hash: dbf20cd50782f069
     modified: false
   - path: .bmad-core/agents/providers/claude/bmad-master.yaml
-    hash: 63b09822b674d16f
+    hash: 808e678695013e08
     modified: false
   - path: .bmad-core/agents/providers/claude/architect.yaml
-    hash: 2bece100c48ac54e
+    hash: f6aaa925e03544b7
     modified: false
   - path: .bmad-core/agents/providers/claude/analyst.yaml
-    hash: 85ab9b04218b6412
+    hash: 598ea2c53a9837b3
     modified: false
   - path: .bmad-core/agents/providers/claude/agent-template.md
-    hash: ef7b2de9e083d201
+    hash: 72ca541793fdd63e
     modified: false

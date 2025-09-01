@@ -6,13 +6,12 @@ This directory contains IDE/provider-specific configurations for BMAD agents, al
 
 ```
 providers/
-├── claude/           # Claude-specific configurations
-│   ├── dev.yaml     # Configuration for dev agent in Claude
-│   ├── architect.yaml
-│   └── ...
-├── gemini/          # Gemini-specific configurations
-│   └── ...
-└── [provider]/      # Other provider configurations
+├── claude/              # Claude-specific configurations
+│   ├── agent-template.md # Template for generating Claude native agents
+│   ├── dev.yaml         # Configuration for dev agent in Claude
+│   ├── architect.yaml   # Configuration for architect agent
+│   └── ...              # Other agent configurations
+└── [provider]/          # Other provider configurations (future)
 ```
 
 ## Configuration Format
@@ -24,27 +23,17 @@ Each provider configuration file is a YAML file with the following structure:
 provider: claude
 
 # Model to use (provider-specific)
-model: opus          # Options: opus, sonnet, haiku
-
-# Generate native agent wrapper
-native-agent: true   # Whether to create a native agent in .claude/agents/
+model: opus # Options: opus, sonnet, haiku
 
 # Tools specification
-tools: all          # Which tools the agent can access
+tools: all # Which tools the agent can access
 
-# Description for the native agent
-description: "BMAD Developer Agent optimized for Claude"
+# Color for visual distinction in Claude interface
+color: blue # Options: blue, green, red, purple, etc.
 
-# Additional provider-specific settings
-additional-config:
-  temperature: 0.7
-  max-tokens: 4096
-
-# Native agent wrapper settings (Claude-specific)
+# Native agent wrapper settings
 wrapper:
-  name: bmad-dev          # Name for the native agent
-  shortcut: /bmad-dev     # Command to invoke the agent
-  priority: high          # Priority level
+  name: BMAD-dev # Name for the native agent
 ```
 
 ## How It Works
@@ -57,17 +46,18 @@ When BMAD is installed for Claude Code with provider configurations:
    - Invoked with: `/BMad/agents/dev`
    - Uses current selected model
 
-2. **Native Agent Wrapper**: If `native-agent: true`, also creates a native agent in `.claude/agents/`
-   - Invoked with: `/bmad-dev` (or configured wrapper name)
+2. **Native Agent Wrapper**: If provider config exists, also creates a native agent in `.claude/agents/`
+   - Invoked with: `/BMAD-dev` (configured wrapper name)
    - Uses the model specified in the provider config (e.g., `opus`)
-   - Automatically invokes the full BMAD agent functionality
+   - Automatically loads and assumes the full BMAD agent persona
 
 ### Benefits
 
 - **Model Control**: Ensure specific agents use optimal models (e.g., Opus for complex dev tasks)
-- **Provider Optimization**: Tune settings for each AI provider's strengths
+- **Provider Optimization**: Configure settings for each AI provider's strengths
 - **Backward Compatible**: Existing BMAD commands continue to work
 - **User Choice**: Users can choose between native agent (with specified model) or command (with current model)
+- **Visual Distinction**: Color-coded agents for easy identification
 
 ## Adding Provider Configurations
 
@@ -76,18 +66,19 @@ To add a configuration for a new provider:
 1. Create a directory for the provider (e.g., `providers/gemini/`)
 2. Add YAML configuration files for each agent you want to customize
 3. Include provider-specific settings and model preferences
-4. The installer will automatically detect and use these configurations
+4. Create an agent template file for native agent generation
+5. The installer will automatically detect and use these configurations
 
 ## Example Usage
 
 After installation with provider configs:
 
 ```bash
-# Use native agent with Opus model (Claude)
-/bmad-dev
+# Use native agent with specified model (e.g., Opus)
+@agent-BMAD-dev what's your name?
 
 # Use standard command with current model
 /BMad/agents/dev
 ```
 
-Both approaches load the same BMAD agent, but the native agent ensures the specified model is used.
+Both approaches load the same BMAD agent persona, but the native agent ensures the specified model and settings are used.

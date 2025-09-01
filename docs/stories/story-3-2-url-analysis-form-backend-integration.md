@@ -1,4 +1,4 @@
-# Story 3-1: URL Input & Validation Interface
+# Story 3-2: URL Analysis Form with Backend Integration
 
 ## User Story
 

@@ -1,4 +1,4 @@
-# Implementation Plan: Story 3-2 - Frontend UI Foundation Bootstrap
+# Implementation Plan: Story 0-7 - Frontend UI Foundation Bootstrap
 
 ## Metadata
 - **Story File**: story-3-2-frontend-ui-bootstrap.md

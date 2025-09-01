@@ -12,9 +12,40 @@ Frontend Unit (30%)  Backend Unit (30%)
 
 ## Test Organization
 
-- **Unit tests:** Colocated with source files using `.test.ts` suffix
-- **Integration tests:** Separate tests/ directory
-- **E2E tests:** Playwright tests in tests/e2e/
+We use a dedicated top-level `tests/` directory with clear separation of concerns and consistent naming.
+
+### Directory Structure
+```
+tests/
+├── __mocks__/                   # Mock implementations
+├── unit/                        # Unit tests
+│   ├── components/              # Frontend component tests
+│   ├── services/                # Backend service tests
+│   ├── utils/                   # Utility function tests
+│   └── lib/                     # Library tests
+├── integration/                 # Integration tests
+│   ├── api/                     # API endpoint tests
+│   ├── services/                # Service integration tests
+│   └── workflows/               # End-to-end workflow tests
+└── e2e/                         # End-to-end browser tests
+    ├── user-flows/              # Complete user journey tests
+    ├── api-scenarios/           # API scenario tests
+    ├── cross-browser/           # Browser compatibility tests
+    └── services/                # Real external service integration tests
+```
+
+### Test Types and Locations
+
+- Unit tests: `tests/unit/`
+- Integration tests: `tests/integration/`
+- E2E UI tests: `tests/e2e/`
+- E2E Service tests: `tests/e2e/services/`
+
+### File Naming Conventions
+
+- Unit tests: `*.test.ts` or `*.spec.ts`
+- Integration tests: `*.integration.test.ts`
+- E2E tests: `*.e2e.test.ts`
 
 Coverage target: 80% minimum across all test types
 

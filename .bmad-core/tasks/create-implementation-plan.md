@@ -4,7 +4,9 @@
 
 ## Purpose
 
-Generate an extremely detailed, prescriptive implementation plan that enables less advanced models to execute story development without making complex architectural decisions. This task leverages models with superior reasoning capabilities to create comprehensive technical guidance.
+Ultra think to generate an extremely detailed, prescriptive implementation plan that enables less advanced models to execute story development without making complex architectural decisions. This task leverages models with superior reasoning capabilities to create comprehensive technical guidance.
+
+IMPORTANT: The implementation plan MUST be technology-specific and align with the project's preferred stack and standards. Pull platform, language, framework, testing, and tooling details from authoritative sources (see 1.4). Specify exact modules, file paths, public APIs, framework conventions, build/test tools, and dependency versions so a junior developer can implement without making architectural decisions.
 
 ## CRITICAL Prerequisites
 
@@ -50,23 +52,28 @@ Generate an extremely detailed, prescriptive implementation plan that enables le
 #### 1.4 Load Architecture Context
 
 - Load all architecture documents to have a clear understanding of the entire system
+- Specifically load files from `bmad-core/core-config.yaml` → `devLoadAlwaysFiles` (e.g., `docs/architecture/tech-stack.md`, `coding-standards.md`, `unified-project-structure.md`, `source-tree.md`, `development-workflow.md`)
+- If available, include platform-specific files in `docs/architecture/` (web, mobile, desktop/service)
+- If provided, incorporate preferences from `bmad-core/data/technical-preferences.md`
 - Extract existing code patterns, conventions, and technical standards
-- Identify relevant libraries, frameworks, and design patterns already in use
+- Identify relevant languages, frameworks, test frameworks, build tools, and design patterns already in use
+- Record the authoritative sources used (file names) in the plan's Metadata section
+- Use `unified-project-structure.md` as the source of truth for all file/folder paths (including test file locations) and override any generic defaults (e.g., do NOT assume `__tests__` unless explicitly defined there)
 
-**UI Documentation Check:**
+**Interface/UI Documentation Check (Technology-Agnostic):**
 
-If story involves ANY UI/front-end changes:
+If the story involves ANY user interface or client-facing changes (web, mobile, desktop):
 
-- **MUST** read `docs/front-end-spec.md` if it exists
-- **MUST** read any UI/front-end related files in `docs/`
-- Incorporate UI patterns and requirements into the implementation plan:
-  - Component architecture and reusability patterns
-  - Styling conventions and design system usage
-  - State management approaches for UI
-  - Form handling and validation patterns
-  - Responsive design requirements
-  - Accessibility standards
-- Ensure plan aligns with established front-end architecture
+- Read relevant UI/client documentation under `docs/architecture/` (look for: frontend, ui, client, web, mobile, ios, android, desktop, electron, view, component, design)
+- If present, also read any consolidated UI specs (e.g., `docs/front-end-spec.md`) without assuming web-only context
+- Incorporate platform-appropriate patterns and requirements into the plan:
+  - Component/view architecture and reusability patterns
+  - Styling/appearance conventions appropriate to the platform
+  - State management approaches
+  - Input handling and validation patterns
+  - Responsiveness/adaptivity across form factors
+  - Accessibility standards applicable to the target platform
+- Ensure the plan aligns with the established UI/client architecture for the project
 
 ### 2. Re-Evaluate Existing Implementation Plan (If Plan File Exists)
 
@@ -145,12 +152,12 @@ If story involves ANY UI/front-end changes:
 - Reference existing codebase examples where patterns are already used
 - Specify how patterns will be adapted for this specific story
 
-#### 3.2.2 Library and Framework Choices
+#### 3.2.2 Library and Framework Choices (Technology-Specific)
 
-- Select specific libraries needed for implementation
-- Document version requirements and compatibility considerations
-- Explain why chosen over alternatives (with specific reasons)
-- Note any new dependencies that need approval
+- Select specific languages, frameworks, libraries, and tools required (runtime, UI/toolkit, build, test, packaging)
+- Document exact version requirements and compatibility considerations
+- Explain why chosen over alternatives (aligned to `tech-stack.md` and coding standards)
+- Note any new dependencies that need explicit approval and add them to the Dependency Policy
 
 #### 3.2.3 Module Organization Strategy
 
@@ -159,14 +166,28 @@ If story involves ANY UI/front-end changes:
 - Document how new code integrates with existing architecture
 - Plan for future extensibility and maintenance
 
+#### 3.2.4 API Contract Analysis
+
+- **CRITICAL**: Identify and document any proposed changes to API contracts between backend and frontend
+- **For projects at v1.0.0+ (major releases)**: Analyze breaking change impact and upgrade paths
+  - Document affected consumers and integration points
+  - Plan backward compatibility strategies where feasible
+  - Identify required user communication and migration documentation
+  - **MANDATORY**: Mark breaking changes for explicit user verification before implementation
+- Document new API endpoints, modified request/response schemas, or removed interfaces
+- Specify API versioning strategy for changes (if applicable)
+- Note authentication, authorization, or rate limiting changes
+- Plan API documentation updates and change communication strategy
+
 ### 3.3 Define Component Structure
 
-#### 3.3.1 Detailed Module Design
+#### 3.3.1 Detailed Module Design (Technology-Specific)
 
-- Specify exact class/function/component structures
-- Define public APIs and method signatures
-- Document parameter types and return values
-- Plan internal implementation boundaries
+- Specify exact class/function/component structures using project idioms
+- Define public APIs and method signatures (types/schemas, error contracts, states)
+- Document parameter types and return values (or DTO schemas)
+- Specify exact file and directory paths following `unified-project-structure.md` and `source-tree.md`
+- Plan internal implementation boundaries and extension points
 
 #### 3.3.2 Interface and Type Definitions
 
@@ -218,6 +239,7 @@ graph TD
 - Document state management patterns and data persistence flows
 - Show caching layers and invalidation strategies
 - Map validation and transformation points
+- For client platforms, consider adding view/state transition diagrams
 
 ### 3.5 Create Interaction Sequence Diagrams
 
@@ -360,6 +382,12 @@ FUNCTION analyzeUrl(url)
 END FUNCTION
 ```
 
+#### 3.6.2 Interface/Signature Stubs (Technology-Specific)
+
+- Provide language/framework-specific function/class/component signatures
+- Provide test skeletons with exact file names and test IDs mapped to ACs
+- Include configuration snippets (e.g., build/test runner configs) if needed
+
 #### 3.6.2 State Management Pseudo-Code
 
 - Define state transitions and update procedures
@@ -415,6 +443,7 @@ graph TD
 - Document API contract testing approaches
 - Show cross-service communication test patterns
 - Define monitoring and observability validation tests
+- Specify exact test file locations and naming conventions per `unified-project-structure.md` (do not invent folder names)
 
 ### 3.8 Document Code Patterns and Conventions
 
@@ -454,6 +483,14 @@ graph TD
 - Plan for backward compatibility requirements
 - Define deprecation and migration strategies
 - Document knowledge transfer and onboarding requirements
+
+#### 3.9.4 Technology-Specific Guardrails
+
+- Provide a Dependency Policy listing explicitly approved new dependencies (if any) and prohibited categories for this story
+- Provide a Do-Not-Do list (e.g., avoid cross-cutting refactors, schema changes, or architectural changes unless listed)
+- Define Observability requirements (logs/metrics/traces) and where to add them
+- Define Rollout/Recovery guidance where applicable (feature toggles, rollback plan)
+- Foldering Guardrail: Test and source file paths must follow `unified-project-structure.md`; avoid generic defaults like `__tests__` unless explicitly defined there
 
 ### 3.10 Save Implementation Plan to File (Execute Immediately After Plan Acceptance)
 
@@ -499,6 +536,32 @@ graph TD
 - [ ] Integration Points Connected
 - [ ] Testing Complete
 - [ ] Story Acceptance Criteria Met
+
+## Traceability Matrix
+
+| AC ID | Acceptance Criterion (summary) | Test IDs               | Modules/Files/Classes/Functions | Notes                      |
+| ----- | ------------------------------ | ---------------------- | ------------------------------- | -------------------------- |
+| AC-1  | {short description}            | T-XXX-001, T-XXX-INT-A | path/to/moduleA, ClassB.methodC | {edge cases, dependencies} |
+| AC-2  | {short description}            | T-XXX-002              | path/to/componentD, functionE   | {negative cases, perf}     |
+
+Instructions:
+
+- Every AC must map to one or more concrete Test IDs and specific code locations.
+- Keep IDs consistent across code and tests. Update this table if scope changes.
+
+## Questions & Decisions Ledger
+
+### Open Questions for James
+
+| Q#  | Title         | Context (what you’re doing)   | Question (what’s unclear) | Options considered | Preferred by Junior | Date         |
+| --- | ------------- | ----------------------------- | ------------------------- | ------------------ | ------------------- | ------------ |
+| Q1  | {brief title} | {file/task/section reference} | {precise question}        | {A/B/C}            | {proposed}          | {YYYY-MM-DD} |
+
+### Resolved Decisions
+
+| D#  | Title         | Decision          | Rationale    | Alternatives Considered     | Date         | Impacted Sections              |
+| --- | ------------- | ----------------- | ------------ | --------------------------- | ------------ | ------------------------------ |
+| D1  | {brief title} | {chosen approach} | {why chosen} | {rejected A/B with reasons} | {YYYY-MM-DD} | {Traceability, Tests, Modules} |
 ```
 
 ## Output Requirements
@@ -516,6 +579,13 @@ The implementation plan file must contain ALL sections:
 7. **Step-by-Step Implementation**: Ordered with checkpoints
 8. **Code Patterns & Conventions**: Specific with examples
 9. **Potential Pitfalls & Mitigation**: Comprehensive with solutions
+10. **API Contract Changes**: Document any backend/frontend interface modifications, breaking changes, and version considerations
+11. **Traceability Matrix**: Map each Acceptance Criterion → test IDs → modules/files/classes/functions
+12. **Interfaces & Contracts**: Explicit names, signatures, schemas, state transitions, and error contracts
+13. **Dependency Policy**: Explicit approvals and prohibited changes
+14. **Observability**: What to log/measure and thresholds
+15. **Rollout/Recovery**: Toggle/rollback guidance where relevant
+16. **Questions & Decisions Ledger**: Open questions; resolved decisions with dates and rationale
 
 ### Quality Standards
 
@@ -524,6 +594,8 @@ The implementation plan file must contain ALL sections:
 - **Examples**: Reference existing codebase patterns where applicable
 - **Completeness**: Cover all aspects of the story implementation
 - **Clarity**: Write for Sonnet 4 to execute without interpretation
+- **Technology Specificity**: Specify frameworks, versions, file paths, commands, test runner configuration, and naming conventions consistent with `tech-stack.md` and `source-tree.md`
+- **Version Awareness**: For projects at v1.0.0+, always consider the impact of changes on existing users and API consumers, document upgrade paths, and flag breaking changes for explicit user verification
 
 ### Validation Checklist
 
@@ -537,6 +609,11 @@ Before completing the task, verify:
 - [ ] Potential pitfalls are identified with mitigation strategies
 - [ ] Integration with existing codebase is clearly documented
 - [ ] Error handling covers all failure scenarios
+- [ ] API Contract Changes documented if any backend/frontend interface modifications are planned
+- [ ] For v1.0.0+ projects: Breaking changes identified and marked for user verification
+- [ ] Traceability Matrix links every AC to test IDs and code locations
+- [ ] Dependency Policy defined with approvals/prohibitions
+- [ ] Observability and Rollout guidance provided where applicable
 
 ## Success Criteria
 
@@ -544,7 +621,7 @@ Before completing the task, verify:
 
 The implementation plan is complete when:
 
-1. **Sonnet 4 Readiness**: The plan contains sufficient detail for Sonnet 4 to implement without making architectural decisions
+1. **Sonnet 4 Readiness**: The plan contains sufficient technology-specific detail for Sonnet 4 to implement without making architectural decisions
 2. **Decision Completeness**: All significant technical decisions are made and documented with rationale
 3. **Pattern Consistency**: The plan follows established codebase patterns and conventions
 4. **Risk Mitigation**: All known risks are identified with specific mitigation strategies

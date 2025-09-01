@@ -1,8 +1,8 @@
 # Claude-specific configuration for dev-junior agent
 provider: claude
-model: sonnet         # Use Sonnet model for junior developer
-tools: all           # Inherit all available tools
-color: green         # Color for visual distinction
+model: sonnet # Use Sonnet model for junior developer
+tools: all # Inherit all available tools
+color: green # Color for visual distinction
 
 # Native agent wrapper settings
 wrapper:

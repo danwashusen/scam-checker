@@ -37,19 +37,19 @@ optional:
 - Load the implementation plan for reference context
 - Review the File List to understand scope of changes
 
-**UI Documentation Check:**
+**Interface/UI Documentation Check (Technology-Agnostic):**
 
-If ANY review feedback relates to UI/front-end issues:
+If ANY review feedback relates to UI/client issues (web, mobile, desktop):
 
-- **MUST** read `docs/front-end-spec.md` if it exists
-- **MUST** read any UI/front-end related files in `docs/architecture/`
-- Ensure all fixes will align with established UI patterns and requirements
+- Read any consolidated UI specs (e.g., `docs/front-end-spec.md`) if present, without assuming web-only context
+- Read UI/client-related files in `docs/architecture/` (look for: frontend, ui, client, web, mobile, ios, android, desktop, electron, view, component, design)
+- Ensure all fixes align with established UI/client patterns and requirements
 - Pay special attention to:
-  - Component structure consistency
-  - Styling convention adherence
-  - Form handling patterns
-  - Responsive design requirements
-- For junior developers: Add questions to implementation plan if UI fix requirements are unclear
+  - Component/view structure consistency
+  - Styling/appearance convention adherence appropriate to the platform
+  - Input/form handling patterns
+  - Responsiveness/adaptivity requirements
+- For junior developers: Add questions to the implementation plan if UI/client fix requirements are unclear
 
 **Categorize Feedback Items:**
 
@@ -83,6 +83,7 @@ If ANY review feedback relates to UI/front-end issues:
 - Implement the exact solution provided in feedback
 - Run tests after each fix to ensure no regressions
 - Validate fix addresses the root issue, not just symptoms
+- Do not introduce new dependencies unless explicitly approved in the plan's Dependency Policy; otherwise, request senior guidance
 
 #### 2.2 Should Improve Items (Medium Priority)
 
@@ -100,6 +101,7 @@ If ANY review feedback relates to UI/front-end issues:
 - Follow provided code examples exactly
 - Consider learning opportunities in each improvement
 - Document reasoning for any variations from suggestions
+- Keep dependencies unchanged unless explicitly approved
 
 #### 2.3 Consider for Future Items (Learning Priority)
 
@@ -144,6 +146,7 @@ If ANY review feedback relates to UI/front-end issues:
 3. **Apply Solution**: Implement the exact fix or improvement suggested
 4. **Validate Change**: Run relevant tests and checks
 5. **Document Progress**: Update task progress and note any questions
+6. **Plan Sync**: Update the implementation plan's Traceability Matrix, Risks, and Plan Amendments to reflect changes
 
 **Implementation Standards:**
 

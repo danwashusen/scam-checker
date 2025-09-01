@@ -1,8 +1,8 @@
 # Claude-specific configuration for dev agent
 provider: claude
-model: opus           # Use Opus model for this agent
-tools: all           # Inherit all available tools
-color: blue          # Color for visual distinction
+model: opus # Use Opus model for this agent
+tools: all # Inherit all available tools
+color: blue # Color for visual distinction
 
 # Native agent wrapper settings
 wrapper:

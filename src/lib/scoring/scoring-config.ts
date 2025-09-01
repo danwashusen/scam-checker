@@ -323,39 +323,39 @@ export class ScoringConfigManager {
     errors: string[],
     warnings: string[]
   ): void {
-    const { lowRiskMax, mediumRiskMax, highRiskMin } = thresholds
+    const { safeMin, cautionMin, dangerMax } = thresholds
 
-    // Check individual thresholds
-    if (lowRiskMax < SCORE_CONSTRAINTS.MIN_SCORE || lowRiskMax > SCORE_CONSTRAINTS.MAX_SCORE) {
-      errors.push(`Low risk threshold must be between ${SCORE_CONSTRAINTS.MIN_SCORE} and ${SCORE_CONSTRAINTS.MAX_SCORE}`)
+    // Check individual thresholds (CORRECTED: Higher scores = safer)
+    if (safeMin < SCORE_CONSTRAINTS.MIN_SCORE || safeMin > SCORE_CONSTRAINTS.MAX_SCORE) {
+      errors.push(`Safe threshold must be between ${SCORE_CONSTRAINTS.MIN_SCORE} and ${SCORE_CONSTRAINTS.MAX_SCORE}`)
     }
 
-    if (mediumRiskMax < SCORE_CONSTRAINTS.MIN_SCORE || mediumRiskMax > SCORE_CONSTRAINTS.MAX_SCORE) {
-      errors.push(`Medium risk threshold must be between ${SCORE_CONSTRAINTS.MIN_SCORE} and ${SCORE_CONSTRAINTS.MAX_SCORE}`)
+    if (cautionMin < SCORE_CONSTRAINTS.MIN_SCORE || cautionMin > SCORE_CONSTRAINTS.MAX_SCORE) {
+      errors.push(`Caution threshold must be between ${SCORE_CONSTRAINTS.MIN_SCORE} and ${SCORE_CONSTRAINTS.MAX_SCORE}`)
     }
 
-    if (highRiskMin < SCORE_CONSTRAINTS.MIN_SCORE || highRiskMin > SCORE_CONSTRAINTS.MAX_SCORE) {
-      errors.push(`High risk threshold must be between ${SCORE_CONSTRAINTS.MIN_SCORE} and ${SCORE_CONSTRAINTS.MAX_SCORE}`)
+    if (dangerMax < SCORE_CONSTRAINTS.MIN_SCORE || dangerMax > SCORE_CONSTRAINTS.MAX_SCORE) {
+      errors.push(`Danger threshold must be between ${SCORE_CONSTRAINTS.MIN_SCORE} and ${SCORE_CONSTRAINTS.MAX_SCORE}`)
     }
 
-    // Check threshold ordering and separation
-    if (lowRiskMax >= mediumRiskMax) {
-      errors.push('Low risk threshold must be less than medium risk threshold')
+    // Check threshold ordering and separation (CORRECTED: dangerMax < cautionMin < safeMin)
+    if (dangerMax >= cautionMin) {
+      errors.push('Danger threshold must be less than caution threshold')
     }
 
-    if (mediumRiskMax >= highRiskMin) {
-      errors.push('Medium risk threshold must be less than high risk threshold')
+    if (cautionMin >= safeMin) {
+      errors.push('Caution threshold must be less than safe threshold')
     }
 
-    const lowMediumGap = mediumRiskMax - lowRiskMax
-    const mediumHighGap = highRiskMin - mediumRiskMax
+    const dangerCautionGap = cautionMin - dangerMax - 1
+    const cautionSafeGap = safeMin - cautionMin
 
-    if (lowMediumGap < SCORE_CONSTRAINTS.MIN_THRESHOLD_SEPARATION) {
-      warnings.push(`Small gap between low and medium thresholds (${lowMediumGap}) may cause classification instability`)
+    if (dangerCautionGap < SCORE_CONSTRAINTS.MIN_THRESHOLD_SEPARATION) {
+      warnings.push(`Small gap between danger and caution thresholds (${dangerCautionGap}) may cause classification instability`)
     }
 
-    if (mediumHighGap < SCORE_CONSTRAINTS.MIN_THRESHOLD_SEPARATION) {
-      warnings.push(`Small gap between medium and high thresholds (${mediumHighGap}) may cause classification instability`)
+    if (cautionSafeGap < SCORE_CONSTRAINTS.MIN_THRESHOLD_SEPARATION) {
+      warnings.push(`Small gap between caution and safe thresholds (${cautionSafeGap}) may cause classification instability`)
     }
   }
 

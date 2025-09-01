@@ -78,6 +78,7 @@ graph TB
 - **Jamstack Architecture:** Static generation with serverless APIs - _Rationale:_ Optimal performance for content delivery with dynamic API analysis
 - **API Gateway Pattern:** Centralized external API orchestration - _Rationale:_ Manages rate limits, caching, and error handling for multiple external services
 - **Component-Based UI:** Reusable React components with shadcn/ui - _Rationale:_ Consistent dual-layer interface (simple + technical views)
+- **Repository Pattern:** Abstract external API access - _Rationale:_ Enables testing and easy service provider switching
 - **Factory Pattern:** Service instantiation with configuration injection - _Rationale:_ Eliminates singletons, improves testability, enables environment-specific configs
 - **Builder Pattern:** Fluent API for complex service configuration - _Rationale:_ Simplified service setup with type safety and environment defaults
 - **Cache-Aside Pattern:** In-memory result caching - _Rationale:_ Reduces external API costs and improves response times
@@ -426,22 +427,69 @@ When caching becomes necessary based on cost/performance metrics, here's the Dyn
 
 ### Component Architecture
 
-#### Component Organization
+#### Project Tree (src-rooted)
 ```
-frontend/
-├── components/
-│   ├── ui/              # shadcn/ui components
-│   ├── analysis/        # Analysis-specific components
-│   │   ├── UrlInputForm.tsx
-│   │   ├── ResultsDisplay.tsx
-│   │   ├── RiskScoreCard.tsx
-│   │   ├── DetailedBreakdown.tsx
-│   │   └── LoadingStates.tsx
-│   ├── layout/          # Layout components
-│   └── common/          # Shared components
-├── hooks/               # Custom React hooks
-├── lib/                 # Utilities and configs
-└── app/                 # Next.js 15 app directory
+scam-checker/
+├── src/                              # Application source code
+│   ├── app/                          # Next.js App Router directory
+│   │   ├── globals.css               # Global styles
+│   │   ├── layout.tsx                # Root layout component
+│   │   ├── page.tsx                  # Home page component
+│   │   ├── loading.tsx               # Loading UI component
+│   │   ├── error.tsx                 # Error UI component
+│   │   └── api/                      # API route handlers (development/local)
+│   │       └── analyze/              # URL analysis endpoints
+│   │           └── route.ts          # Main analysis API endpoint
+│   │
+│   ├── components/                   # Reusable React components
+│   │   ├── ui/                       # Base UI components (shadcn/ui)
+│   │   │   ├── button.tsx            # Core button component
+│   │   │   ├── input.tsx             # Form input component
+│   │   │   ├── card.tsx              # Card layout component
+│   │   │   ├── badge.tsx             # Status/label badges
+│   │   │   ├── progress.tsx          # Progress indicators
+│   │   │   ├── alert.tsx             # Alert/notification component
+│   │   │   └── spinner.tsx           # Loading spinner
+│   │   │
+│   │   ├── analysis/                 # URL analysis specific components
+│   │   │   ├── url-input-form.tsx    # Main URL submission form
+│   │   │   ├── risk-display.tsx      # Risk score visualization
+│   │   │   ├── technical-details.tsx # Technical analysis results
+│   │   │   ├── explanation-panel.tsx # AI-generated explanations
+│   │   │   ├── loading-states.tsx    # Analysis loading indicators
+│   │   │   └── result-summary.tsx    # Quick results overview
+│   │   │
+│   │   └── layout/                   # Layout and navigation components
+│   │       ├── header.tsx            # Main site header
+│   │       ├── footer.tsx            # Site footer
+│   │       ├── navigation.tsx        # Navigation menu
+│   │       └── sidebar.tsx           # Technical details sidebar
+│   │
+│   ├── lib/                          # Shared utilities and configurations
+│   │   ├── utils.ts                  # General utility functions
+│   │   ├── validation.ts             # URL validation logic
+│   │   ├── cache.ts                  # Client-side caching utilities
+│   │   ├── api-client.ts             # API communication layer
+│   │   └── analysis/                 # Analysis engine utilities
+│   │       ├── whois.ts              # WHOIS integration (client helpers)
+│   │       ├── ssl.ts                # SSL certificate display helpers
+│   │       ├── reputation.ts         # Reputation data formatting
+│   │       └── scoring.ts            # Risk scoring display logic
+│   │
+│   ├── types/                        # TypeScript type definitions
+│   │   ├── analysis.ts               # Analysis result types
+│   │   ├── api.ts                    # API request/response types
+│   │   └── ui.ts                     # UI component prop types
+│   │
+│   └── hooks/                        # Custom React hooks
+│       ├── use-analysis.ts           # URL analysis hook
+│       ├── use-debounce.ts           # Input debouncing hook
+│       └── use-local-storage.ts      # Local storage state hook
+│
+└── public/                           # Static assets
+    ├── images/                       # Image assets
+    ├── icons/                        # Icon assets
+    └── favicon.ico                   # Site favicon
 ```
 
 ### State Management Architecture
@@ -486,7 +534,7 @@ class ApiClient {
   }
 }
 
-// Factory function instead of singleton
+// Factory function (preferred over singletons for testability)
 export const createApiClient = (config?: Parameters<typeof ApiClient>[0]) => 
   new ApiClient(config);
 ```
@@ -520,6 +568,68 @@ lambda/
     └── errors.ts               # Error handling
 ```
 
+#### Service Factory and Builder
+
+The backend uses a Factory Pattern with a Builder to manage service instantiation, replacing singletons for better testability and configuration management.
+
+```typescript
+// services/service-factory.ts
+export class ServiceFactory {
+  static createReputationService(config?: Partial<SafeBrowsingConfig>): ReputationService {
+    return new ReputationService(config)
+  }
+  
+  static createWhoisService(config?: WhoisConfig): WhoisService {
+    return new WhoisService(config)
+  }
+  
+  static createSSLService(config?: SSLConfig): SSLService {
+    return new SSLService(config)
+  }
+  
+  static createAIURLAnalyzer(config?: AIAnalyzerConfig): AIURLAnalyzer {
+    return new AIURLAnalyzer(config)
+  }
+  
+  static createAnalysisServices(config?: ServicesConfig): AnalysisServices {
+    return {
+      reputation: this.createReputationService(config?.reputation),
+      whois: this.createWhoisService(config?.whois),
+      ssl: this.createSSLService(config?.ssl),
+      aiAnalyzer: this.createAIURLAnalyzer(config?.ai)
+    }
+  }
+}
+
+// services/service-builder.ts
+export class ServiceBuilder {
+  private config: ServicesConfig = {}
+
+  withReputationConfig(config: Partial<SafeBrowsingConfig>): ServiceBuilder {
+    this.config.reputation = { ...this.config.reputation, ...config }
+    return this
+  }
+
+  withEnvironment(env: 'development' | 'staging' | 'production'): ServiceBuilder {
+    // Apply environment-specific defaults
+    return this
+  }
+
+  build(): AnalysisServices {
+    return ServiceFactory.createAnalysisServices(this.config)
+  }
+}
+
+// functions/analyze/handler.ts
+const services = new ServiceBuilder()
+  .withEnvironment(process.env.NODE_ENV as any)
+  .withReputationConfig({
+    apiKey: process.env.GOOGLE_SAFE_BROWSING_API_KEY,
+    timeout: 5000
+  })
+  .build()
+```
+
 ### Authentication and Authorization
 
 For MVP - no authentication required. Future implementation would include API key validation via Lambda Authorizer.
@@ -528,43 +638,50 @@ For MVP - no authentication required. Future implementation would include API ke
 
 ```plaintext
 scam-checker/
-├── .github/                        # CI/CD workflows
-│   └── workflows/
-│       ├── ci.yaml                # Continuous Integration
-│       └── deploy.yaml            # Deploy to AWS
-├── app/                           # Next.js 15 application (frontend)
-│   ├── layout.tsx                 # Root layout
-│   ├── page.tsx                   # Home page
-│   ├── api/                       # API route handlers (development only)
-│   ├── about/
-│   └── developer/
-├── components/                     # React components
-│   ├── ui/                        # shadcn/ui components
-│   ├── analysis/                  # Analysis-specific components
-│   └── layout/
-├── lambda/                        # AWS Lambda functions
-│   ├── functions/
-│   ├── services/
-│   ├── utils/
-│   └── layers/
-├── lib/                           # Frontend utilities
-├── hooks/                         # Custom React hooks
-├── stores/                        # Zustand stores
-├── shared/                        # Shared code (types, constants)
-├── terraform/                     # Infrastructure as Code
-│   ├── modules/
-│   ├── environments/
-│   └── main.tf
-├── tests/                         # Test files organized by type
-│   ├── unit/                      # Unit tests
-│   ├── integration/               # Integration tests
-│   └── e2e/                       # End-to-end tests
-├── docs/                          # Documentation
-├── public/                       # Static assets
-├── next.config.js                # Next.js configuration
-├── tailwind.config.ts            # Tailwind configuration
-├── package.json                  # Dependencies
-└── README.md                     # Project documentation
+├── README.md                          # Project overview and setup
+├── .gitignore                         # Git ignore patterns
+├── .env.example                       # Environment variables template
+├── .env.local                         # Local env vars (gitignored)
+├── package.json                       # Dependencies and scripts
+├── next.config.ts                     # Next.js configuration
+├── tailwind.config.ts                 # Tailwind CSS configuration
+├── tsconfig.json                      # TypeScript configuration
+├── jest.config.js                     # Jest testing configuration
+├── cypress.config.ts                  # Cypress E2E testing configuration
+│
+├── src/                               # Application source code
+│   ├── app/                           # Next.js App Router directory
+│   ├── components/                    # Reusable React components (ui/ analysis/ layout/)
+│   ├── lib/                           # Shared utilities and configurations
+│   ├── types/                         # TypeScript type definitions
+│   └── hooks/                         # Custom React hooks
+│
+├── public/                            # Static assets
+│
+├── tests/                             # Test files organized by type
+│   ├── __mocks__/                     # Mock implementations
+│   ├── unit/                          # Unit tests
+│   ├── integration/                   # Integration tests
+│   └── e2e/                           # End-to-end tests (Playwright/Cypress)
+│
+├── infrastructure/                    # Infrastructure as Code
+│   ├── aws/                           # AWS-specific infrastructure
+│   │   ├── lambda/                    # Lambda function configurations
+│   │   ├── api-gateway/               # API Gateway configurations
+│   │   └── cloudfront/                # CloudFront configurations
+│   ├── terraform/                     # Terraform configuration (if used)
+│   │   ├── main.tf
+│   │   ├── variables.tf
+│   │   └── outputs.tf
+│   └── scripts/                       # Deployment and utility scripts
+│       ├── deploy.sh                  # Deployment script
+│       └── local-setup.sh             # Local environment setup
+│
+└── docs/                              # Project documentation
+    ├── prd/                           # Product requirements (sharded)
+    ├── architecture/                  # Architecture documentation (sharded)
+    ├── epic-*.md                      # Epic documentation files
+    └── stories/                       # User story files
 ```
 
 ## Development Workflow
@@ -585,14 +702,34 @@ terraform --version  # v1.6.x
 npm run dev
 
 # Run tests
-npm run test          # All tests
-npm run test:unit     # Unit tests only
-npm run test:e2e      # E2E tests
+npm run test                 # All tests
+npm run test:unit            # Unit tests only
+npm run test:integration     # Integration tests (mocked external services)
+npm run test:e2e             # E2E UI tests (Playwright)
+npm run test:e2e:services    # E2E service tests (real external APIs)
 
 # Build commands
 npm run build         # Build frontend
 npm run build:lambda  # Build Lambda functions
 ```
+
+### Development Process Requirements
+
+#### External Service Integration Development
+
+When developing or modifying services in `src/lib/analysis/` that integrate with external APIs:
+
+1. Unit Tests First: Write comprehensive unit tests with mocked external services
+   - Mock all external API calls using msw/nock or similar
+   - Test business logic, edge cases, and error scenarios
+   - Achieve minimum 80% coverage
+2. E2E Service Test Requirement: Create corresponding E2E test in `tests/e2e/services/`
+   - Naming: `{service-name}.e2e.ts` (e.g., `reputation-service.e2e.ts`)
+   - Purpose: Verify integration wiring with real external endpoints
+   - Scope: Authentication, request/response format, and basic error handling
+3. CI/CD Integration: Both test suites must pass before deployment
+   - Unit/integration tests on every commit
+   - E2E service tests before production deployment; failures block deploy
 
 ## Deployment Architecture
 
@@ -656,39 +793,98 @@ Frontend Unit (30%)  Backend Unit (30%)
 
 ### Test Organization
 
-The testing structure follows a clear directory hierarchy with explicit separation of concerns:
+The testing structure follows a dedicated top-level `tests/` directory with explicit separation of concerns:
 
 #### Directory Structure
 ```
 tests/
-├── unit/                       # Unit tests
-│   ├── components/            # Frontend component tests
-│   ├── services/              # Backend service tests
-│   ├── utils/                 # Utility function tests
-│   └── lib/                   # Library tests
-├── integration/               # Integration tests
-│   ├── api/                   # API endpoint tests
-│   ├── services/              # Service integration tests
-│   └── workflows/             # End-to-end workflow tests
-└── e2e/                       # End-to-end browser tests
-    ├── user-flows/            # Complete user journey tests
-    ├── api-scenarios/         # API scenario tests
-    └── cross-browser/         # Browser compatibility tests
+├── __mocks__/                   # Mock implementations
+├── unit/                        # Unit tests
+│   ├── components/              # Frontend component tests
+│   ├── services/                # Backend service tests
+│   ├── utils/                   # Utility function tests
+│   └── lib/                     # Library tests
+├── integration/                 # Integration tests
+│   ├── api/                     # API endpoint tests
+│   ├── services/                # Service integration tests
+│   └── workflows/               # End-to-end workflow tests
+└── e2e/                         # End-to-end browser tests
+    ├── user-flows/              # Complete user journey tests
+    ├── api-scenarios/           # API scenario tests
+    ├── cross-browser/           # Browser compatibility tests
+    └── services/                # Real external service integration tests
 ```
 
 #### Test Types and Locations
 
-- **Unit Tests:** `tests/unit/` - Test individual functions, components, and classes in isolation
-- **Integration Tests:** `tests/integration/` - Test multiple components working together, API endpoints, and service interactions
-- **E2E Tests:** `tests/e2e/` - Test complete user workflows using Playwright across real browsers
+- Unit Tests: `tests/unit/` - Test functions, components, and classes in isolation
+- Integration Tests: `tests/integration/` - Test components working together and API endpoints
+- E2E UI Tests: `tests/e2e/` - Complete user workflows using Playwright/Cypress
+- E2E Service Tests: `tests/e2e/services/` - Real external API integrations
+
+#### Required E2E Service Tests
+
+- Reputation Service: `tests/e2e/services/reputation-service.e2e.ts`
+- WHOIS Service: `tests/e2e/services/whois-service.e2e.ts`
+- AI Service: `tests/e2e/services/ai-service.e2e.ts`
+- SSL Service: `tests/e2e/services/ssl-service.e2e.ts`
+
+#### E2E Service Test Configuration
+
+- Separate suite: run with `npm run test:e2e:services`
+- Use dedicated test API keys and safe test domains
+- Respect rate limits; implement delays as needed
+- Graceful failure with clear error messages when services unavailable
 
 #### File Naming Conventions
 
-- **Unit tests:** `*.test.ts` or `*.spec.ts`
-- **Integration tests:** `*.integration.test.ts`
-- **E2E tests:** `*.e2e.test.ts`
+- Unit tests: `*.test.ts` or `*.spec.ts`
+- Integration tests: `*.integration.test.ts`
+- E2E tests: `*.e2e.test.ts`
 
 Coverage target: 80% minimum across all test types
+
+## Frontend Component Implementation Guidelines
+
+Always use shadcn/ui components before creating custom implementations.
+
+### Component Selection Hierarchy
+```
+1. Check shadcn/ui → Use if available
+2. Check shadcn blocks/patterns
+3. Compose existing shadcn primitives
+4. If none apply → Custom (requires justification)
+```
+
+### Pre-Implementation Checklist
+```
+## Component: [Name]
+- [ ] Searched shadcn/ui components
+- [ ] Checked shadcn blocks
+- [ ] Reviewed similar shadcn implementations
+- [ ] Selected primary + supporting components
+- [ ] If custom: justification and approval recorded
+```
+
+### Common Component Mappings (must use)
+
+| UI Need | shadcn Component |
+|---------|------------------|
+| Navigation bar | NavigationMenu |
+| Mobile menu | Sheet |
+| Modal/Dialog | Dialog |
+| Dropdown menu | DropdownMenu/Select |
+| Forms | Form + react-hook-form |
+| Loading states | Skeleton |
+| Notifications | Toast/Sonner |
+| Error messages | Alert |
+| Data tables | Table/DataTable |
+| Tabs/Accordions | Tabs/Accordion |
+
+### Implementation Process
+Use `npx shadcn@latest add <component>` to add required components, implement, add tests, and document usage. Custom components must include a justification file and follow shadcn styling patterns.
+
+See detailed guidance in `docs/architecture/frontend-component-guidelines.md`.
 
 ## Coding Standards
 

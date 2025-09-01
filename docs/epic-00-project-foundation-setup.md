@@ -41,6 +41,8 @@ This epic creates the foundational project structure and development environment
 3. **Story 0-3:** Backend Development Environment - Configure local serverless development with AWS SAM or Serverless Framework
 4. **Story 0-4:** Build Scripts & Development Workflows - Create package.json scripts for development, testing, and building
 5. **Story 0-5:** Development Tooling & Code Quality - Set up linting, formatting, testing frameworks, and git hooks
+6. **Story 0-6:** End-to-End Service Testing Implementation - Create comprehensive E2E tests for all external service integrations
+7. **Story 0-7:** Frontend UI Foundation Bootstrap - Implement responsive, accessible frontend interface with theme system and navigation
 
 ## Technical Requirements
 
@@ -50,6 +52,8 @@ This epic creates the foundational project structure and development environment
 - [ ] Comprehensive build scripts for all development tasks
 - [ ] Code quality tools (ESLint, Prettier, TypeScript)
 - [ ] Testing framework setup (Jest, React Testing Library, Cypress)
+- [ ] End-to-end service testing for external API integrations
+- [ ] Comprehensive frontend UI foundation with theme system
 - [ ] Environment variable management for local development
 - [ ] Git configuration with appropriate ignore patterns
 - [ ] Documentation structure with clear component descriptions
@@ -62,6 +66,8 @@ This epic creates the foundational project structure and development environment
 - [ ] Infrastructure code isolated and version controlled
 - [ ] Documentation co-located with relevant code
 - [ ] Test files organized parallel to source code
+- [ ] E2E service tests organized separately from unit tests
+- [ ] UI components using shadcn/ui design system consistently
 - [ ] Configuration files properly organized and documented
 
 ## Risk Mitigation
@@ -78,6 +84,8 @@ This epic creates the foundational project structure and development environment
 - [ ] Backend development environment supports serverless local testing
 - [ ] Build scripts enable efficient development workflows
 - [ ] Development tooling enforces code quality standards
+- [ ] E2E service tests implemented for external API integrations
+- [ ] Frontend UI foundation with responsive design and theme system
 - [ ] Documentation provides clear guidance for each project area
 - [ ] Environment configuration supports local development
 - [ ] Git workflow configured for team collaboration
@@ -87,6 +95,8 @@ This epic creates the foundational project structure and development environment
 
 - **Setup Time**: New developer can get fully functional local environment in < 15 minutes
 - **Build Performance**: Local development builds complete in < 30 seconds
-- **Test Execution**: Unit test suite runs in < 10 seconds
+- **Test Execution**: Unit test suite runs in < 10 seconds, E2E service tests complete in < 5 minutes
 - **Code Quality**: 100% of code passes linting and formatting standards
+- **Frontend Performance**: Lighthouse score >80 for performance, accessibility score > 90
+- **Service Integration**: E2E tests pass rate > 90% in CI, external service failures detected
 - **Documentation Coverage**: Every major directory has descriptive README

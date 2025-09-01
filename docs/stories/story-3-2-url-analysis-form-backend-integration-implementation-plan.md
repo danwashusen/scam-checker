@@ -1,8 +1,8 @@
-# Implementation Plan: Story 3-1 - URL Input & Validation Interface
+# Implementation Plan: Story 3-2 - URL Analysis Form with Backend Integration
 
 ## Metadata
 
-- **Story File**: story-3-1-url-input-validation-interface.md
+- **Story File**: story-3-2-url-analysis-form-backend-integration.md
 - **Created**: 2025-01-30
 - **Last Updated**: 2025-01-30
 - **BMad Version**: 1.0

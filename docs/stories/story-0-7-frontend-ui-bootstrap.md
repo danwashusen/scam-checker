@@ -1,4 +1,4 @@
-# Story 3-2: Frontend UI Foundation Bootstrap - Brownfield Addition
+# Story 0-7: Frontend UI Foundation Bootstrap - Brownfield Addition
 
 ## Story Title
 Frontend UI Foundation Bootstrap with Theme Verification - Brownfield Addition

@@ -1,8 +1,8 @@
 # Claude-specific configuration for qa agent
 provider: claude
-model: sonnet         # Use Sonnet model for quality assurance tasks
-tools: all           # Inherit all available tools
-color: red           # Color for visual distinction
+model: sonnet # Use Sonnet model for quality assurance tasks
+tools: all # Inherit all available tools
+color: red # Color for visual distinction
 
 # Native agent wrapper settings
 wrapper:

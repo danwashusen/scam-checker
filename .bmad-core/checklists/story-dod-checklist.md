@@ -43,11 +43,16 @@ The goal is quality delivery, not just checking boxes.]]
 
 3. **Testing:**
 
-   [[LLM: Testing proves your code works. Be honest about test coverage]]
+   [[LLM: Testing proves your code works. Be honest about test coverage and failures]]
    - [ ] All required unit tests as per the story and `Operational Guidelines` Testing Strategy are implemented.
    - [ ] All required integration tests (if applicable) as per the story and `Operational Guidelines` Testing Strategy are implemented.
    - [ ] All tests (unit, integration, E2E if applicable) pass successfully.
    - [ ] Test coverage meets project standards (if defined).
+
+   **CRITICAL: If any tests are failing, bypassed, or incomplete:**
+   - [ ] All test failures have been documented with specific details
+   - [ ] Reason for bypassing tests is clearly explained (e.g., "New components differ significantly from existing test suite")
+   - [ ] Test status is honestly reported in completion summary (DO NOT claim "comprehensive testing" if tests are failing)
 
 4. **Functionality & Verification:**
 
@@ -89,7 +94,14 @@ After completing the checklist:
 2. List any items marked as [ ] Not Done with explanations
 3. Identify any technical debt or follow-up work needed
 4. Note any challenges or learnings for future stories
-5. Confirm whether the story is truly ready for review
+5. **MANDATORY TEST STATUS DISCLOSURE**: State clearly whether all tests pass or if there are failures/bypassed tests
+6. Confirm whether the story is truly ready for review
+
+COMPLETION MESSAGE TEMPLATES:
+
+- If all tests pass: "All tests pass successfully and comprehensive testing validates the implementation."
+- If tests have known issues: "Implementation complete with known test failures that require senior review and resolution."
+- If tests were bypassed: "Core functionality implemented, but comprehensive testing was bypassed due to [specific reason]."
 
 Be honest - it's better to flag issues now than have them discovered later.]]
 

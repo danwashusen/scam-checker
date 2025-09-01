@@ -137,9 +137,9 @@ describe('ScoringConfigManager', () => {
         const validConfig: ScoringConfig = {
           ...DEFAULT_SCORING_CONFIG,
           thresholds: {
-            lowRiskMax: 30,
-            mediumRiskMax: 70,
-            highRiskMin: 71
+            safeMin: 70,      // 70-100 = safe
+            cautionMin: 30,   // 30-69 = caution
+            dangerMax: 29     // 0-29 = danger
           }
         }
 
@@ -151,24 +151,24 @@ describe('ScoringConfigManager', () => {
         const invalidConfig: ScoringConfig = {
           ...DEFAULT_SCORING_CONFIG,
           thresholds: {
-            lowRiskMax: 70,   // Higher than medium
-            mediumRiskMax: 30, // Lower than low
-            highRiskMin: 71
+            safeMin: 30,      // Lower than caution - invalid
+            cautionMin: 70,   // Higher than safe - invalid
+            dangerMax: 71     // Higher than both - invalid
           }
         }
 
         const validation = configManager.validateConfig(invalidConfig)
         expect(validation.isValid).toBe(false)
-        expect(validation.errors.some(e => e.includes('less than medium'))).toBe(true)
+        expect(validation.errors.some(e => e.includes('less than'))).toBe(true)
       })
 
       it('should warn about small threshold gaps', () => {
         const warningConfig: ScoringConfig = {
           ...DEFAULT_SCORING_CONFIG,
           thresholds: {
-            lowRiskMax: 49,
-            mediumRiskMax: 51, // Small gap
-            highRiskMin: 52
+            safeMin: 51,      // Small gap between caution and safe
+            cautionMin: 49,   // Small gap between danger and caution
+            dangerMax: 48
           }
         }
 

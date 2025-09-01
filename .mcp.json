@@ -3,6 +3,21 @@
     "shadcn": {
       "type": "http",
       "url": "https://www.shadcn.io/api/mcp"
+    },
+    "context7": {
+      "type": "sse",
+      "url": "https://mcp.context7.com/sse",
+      "headers": {
+        "CONTEXT7_API_KEY": "${CONTEXT7_API_KEY}"
+      }
+    },
+    "playwright": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "@playwright/mcp@latest"
+      ],
+      "env": {}
     }
   }
 }
