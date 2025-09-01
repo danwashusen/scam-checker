@@ -1,5 +1,5 @@
 import type { CacheInterface, CacheOptions, CacheEntry, CacheStats } from './cache-types'
-import { NoOpCache } from './no-op-cache'
+import { MemoryCache } from './memory-cache'
 import { Logger } from '../logger'
 
 // Create logger instance - this will be replaced with dependency injection later
@@ -38,8 +38,15 @@ export class CacheManager<T> {
       ...options,
     }
     
-    // Use provided cache implementation or default to NoOpCache for MVP
-    this.cache = cacheImpl || new NoOpCache<CacheEntry<T>>()
+    // Use provided cache implementation or default to MemoryCache
+    this.cache = cacheImpl || new MemoryCache<CacheEntry<T>>({
+      prefix: this.options.prefix,
+      ttl: this.options.ttl,
+      maxSize: this.options.maxSize,
+      maxMemoryMB: 50, // Default 50MB per cache instance
+      evictionThreshold: 0.8,
+      enableMemoryTracking: true
+    })
     this.stats.maxSize = this.options.maxSize
   }
 

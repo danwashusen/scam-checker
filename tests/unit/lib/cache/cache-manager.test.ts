@@ -1,4 +1,4 @@
-import { CacheManager, NoOpCache } from '../../../../src/lib/cache'
+import { CacheManager } from '../../../../src/lib/cache'
 import type { CacheInterface, CacheEntry } from '../../../../src/lib/cache/cache-types'
 
 // Mock cache implementation for testing
@@ -317,52 +317,5 @@ describe('CacheManager', () => {
       const exists = await errorCacheManager.has('key1')
       expect(exists).toBe(false)
     })
-  })
-})
-
-describe('NoOpCache', () => {
-  let noOpCache: NoOpCache<TestData>
-
-  beforeEach(() => {
-    noOpCache = new NoOpCache<TestData>()
-  })
-
-  it('should always return null for get operations', async () => {
-    const result = await noOpCache.get('any-key')
-    expect(result).toBeNull()
-  })
-
-  it('should not store anything on set operations', async () => {
-    await noOpCache.set('key1', { id: '1', value: 'test' })
-    const result = await noOpCache.get('key1')
-    expect(result).toBeNull()
-  })
-
-  it('should always return false for has operations', async () => {
-    await noOpCache.set('key1', { id: '1', value: 'test' })
-    const exists = await noOpCache.has('key1')
-    expect(exists).toBe(false)
-  })
-
-  it('should always return 0 for size operations', async () => {
-    await noOpCache.set('key1', { id: '1', value: 'test' })
-    const size = await noOpCache.size()
-    expect(size).toBe(0)
-  })
-
-  it('should always return empty array for keys operations', async () => {
-    await noOpCache.set('key1', { id: '1', value: 'test' })
-    const keys = await noOpCache.keys()
-    expect(keys).toEqual([])
-  })
-
-  it('should track misses in stats', async () => {
-    await noOpCache.get('key1')
-    await noOpCache.get('key2')
-    
-    const stats = noOpCache.getStats()
-    expect(stats.misses).toBe(2)
-    expect(stats.hits).toBe(0)
-    expect(stats.hitRate).toBe(0)
   })
 })

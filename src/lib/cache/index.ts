@@ -1,5 +1,4 @@
 export { CacheManager } from './cache-manager'
-export { NoOpCache } from './no-op-cache'
 export { MemoryCache } from './memory-cache'
 export { LRUManager } from './lru-manager'
 export { CacheConfig } from './cache-config'
