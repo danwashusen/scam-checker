@@ -68,16 +68,16 @@ export class ScoringCalculator {
       // Extract and normalize risk factors
       const riskFactors = await this.extractRiskFactors(input, config)
       
-      // Calculate weighted score
+      // Calculate weighted score (already a safety score from factors)
       const weightedScore = this.calculateWeightedScore(riskFactors, config)
       
       // Calculate confidence
       const confidence = this.calculateConfidence(riskFactors, config)
       
-      // Apply confidence adjustment to final score
+      // Apply confidence adjustment to final score (still a safety score)
       const finalScore = this.applyConfidenceAdjustment(weightedScore, confidence, config)
       
-      // Determine risk level
+      // Determine risk level using safety score
       const riskLevel = this.determineRiskLevel(finalScore, config)
       
       // Build result metadata
@@ -285,9 +285,10 @@ export class ScoringCalculator {
   ): Promise<RiskFactor> {
     const analysis = reputation.analysis
     
-    // Use existing score from reputation service (already 0-100)
+    // Convert danger scores to safety scores (safety = 100 - danger)
+    const safetyScore = 100 - analysis.score
     const normalizedResult = this.scoreNormalizer.normalize(
-      analysis.score,
+      safetyScore,
       'reputation',
       analysis.confidence
     )
@@ -359,9 +360,10 @@ export class ScoringCalculator {
   ): Promise<RiskFactor> {
     const analysis = ssl.analysis
     
-    // Use existing SSL risk score
+    // Convert danger scores to safety scores (safety = 100 - danger)
+    const safetyScore = 100 - analysis.score
     const normalizedResult = this.scoreNormalizer.normalize(
-      analysis.score,
+      safetyScore,
       'ssl_certificate',
       analysis.confidence
     )
@@ -395,8 +397,9 @@ export class ScoringCalculator {
   ): Promise<RiskFactor> {
     const analysis = ai.analysis
     
-    // Convert AI risk score (already 0-100) or derive from category
-    const aiScore = analysis.riskScore || this.convertScamCategoryToScore(analysis.scamCategory)
+    // Convert AI risk score to safety score (safety = 100 - danger)
+    const dangerScore = analysis.riskScore || this.convertScamCategoryToScore(analysis.scamCategory)
+    const aiScore = 100 - dangerScore
     
     const normalizedResult = this.scoreNormalizer.normalize(
       aiScore,
@@ -560,15 +563,15 @@ export class ScoringCalculator {
   }
 
   /**
-   * Determine risk level from final score
+   * Determine risk level from final score (INVERTED: Higher scores = lower risk)
    */
   private determineRiskLevel(score: number, config: ScoringConfig): RiskLevel {
-    if (score <= config.thresholds.lowRiskMax) {
-      return 'low'
-    } else if (score <= config.thresholds.mediumRiskMax) {
-      return 'medium'
+    if (score >= config.thresholds.safeMin) {
+      return 'low'      // 67-100 = low risk (SAFE)
+    } else if (score >= config.thresholds.cautionMin) {
+      return 'medium'   // 34-66 = medium risk (CAUTION)
     } else {
-      return 'high'
+      return 'high'     // 0-33 = high risk (DANGER)
     }
   }
 

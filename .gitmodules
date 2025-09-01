@@ -1,0 +1,3 @@
+[submodule ".claude/agents/claude-code-workflows"]
+	path = .claude/agents/claude-code-workflows
+	url = git@github.com:danwashusen/claude-code-workflows.git
