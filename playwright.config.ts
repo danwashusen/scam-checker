@@ -5,80 +5,109 @@ import { defineConfig, devices } from '@playwright/test'
  */
 export default defineConfig({
   testDir: './tests/e2e',
-  
-  /* Run tests in files in parallel */
+
   fullyParallel: true,
-  
-  /* Fail the build on CI if you accidentally left test.only in the source code. */
   forbidOnly: !!process.env.CI,
-  
-  /* Retry on CI only */
   retries: process.env.CI ? 2 : 0,
-  
-  /* Opt out of parallel tests on CI. */
   workers: process.env.CI ? 1 : undefined,
-  
-  /* Reporter to use. See https://playwright.dev/docs/test-reporters */
+
   reporter: [
     ['html'],
     ['json', { outputFile: 'test-results/results.json' }],
     ['junit', { outputFile: 'test-results/results.xml' }],
   ],
-  
-  /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
+
   use: {
-    /* Base URL to use in actions like `await page.goto('/')`. */
-    baseURL: 'http://localhost:3000',
-
-    /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
+    baseURL: process.env.BASE_URL || 'http://localhost:3000',
     trace: 'on-first-retry',
-
-    /* Take screenshot on failure */
     screenshot: 'only-on-failure',
-
-    /* Record video on failure */
     video: 'retain-on-failure',
+    // Performance and accessibility defaults
+    actionTimeout: 10000,
+    navigationTimeout: 30000,
   },
 
-  /* Configure projects for major browsers */
+  /* Enhanced projects for comprehensive E2E testing */
   projects: [
+    // Stubbed tests - fast, deterministic browser flows
     {
-      name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      name: 'stubbed',
+      testMatch: ['**/user-flows/**/*.spec.ts', '**/user-flows/**/*.e2e.ts', '**/user-flows/**/*.test.ts'],
+      use: { 
+        ...devices['Desktop Chrome'],
+        // Disable animations for stable testing
+        reducedMotion: 'reduce',
+      },
+    },
+    
+    // Cross-browser testing - stubbed for consistency
+    {
+      name: 'stubbed-firefox',
+      testMatch: ['**/user-flows/**/*.spec.ts'],
+      use: { 
+        ...devices['Desktop Firefox'],
+        reducedMotion: 'reduce',
+      },
+    },
+    {
+      name: 'stubbed-safari',
+      testMatch: ['**/user-flows/**/*.spec.ts'],
+      use: { 
+        ...devices['Desktop Safari'],
+        reducedMotion: 'reduce',
+      },
+    },
+    
+    // Mobile testing - stubbed for consistency
+    {
+      name: 'mobile-chrome',
+      testMatch: ['**/user-flows/**/*.spec.ts'],
+      use: { 
+        ...devices['Pixel 5'],
+        reducedMotion: 'reduce',
+      },
+    },
+    {
+      name: 'mobile-safari',
+      testMatch: ['**/user-flows/**/*.spec.ts'],
+      use: { 
+        ...devices['iPhone 12'],
+        reducedMotion: 'reduce',
+      },
+    },
+    
+    // Tablet testing
+    {
+      name: 'tablet-chrome',
+      testMatch: ['**/user-flows/**/*.spec.ts'],
+      use: { 
+        ...devices['iPad Pro'],
+        reducedMotion: 'reduce',
+      },
     },
 
+    // Live-local tests - real API integration
     {
-      name: 'firefox',
-      use: { ...devices['Desktop Firefox'] },
+      name: 'live-local',
+      testMatch: ['**/live/**/*.spec.ts', '**/live/**/*.e2e.ts', '**/live/**/*.test.ts'],
+      use: { 
+        ...devices['Desktop Chrome'],
+      },
+      /* Run serially to avoid state bleed and API limits */
+      workers: 1,
     },
-
+    
+    // Cross-browser tests - specific compatibility checks
     {
-      name: 'webkit',
-      use: { ...devices['Desktop Safari'] },
+      name: 'cross-browser',
+      testMatch: ['**/cross-browser/**/*.spec.ts'],
+      use: { 
+        ...devices['Desktop Chrome'],
+        reducedMotion: 'reduce',
+      },
     },
-
-    /* Test against mobile viewports. */
-    {
-      name: 'Mobile Chrome',
-      use: { ...devices['Pixel 5'] },
-    },
-    {
-      name: 'Mobile Safari',
-      use: { ...devices['iPhone 12'] },
-    },
-
-    /* Test against branded browsers. */
-    // {
-    //   name: 'Microsoft Edge',
-    //   use: { ...devices['Desktop Edge'], channel: 'msedge' },
-    // },
-    // {
-    //   name: 'Google Chrome',
-    //   use: { ...devices['Desktop Chrome'], channel: 'chrome' },
-    // },
   ],
 
-  /* Run your local dev server before starting the tests */
   webServer: {
     command: 'npm run dev',
     url: 'http://localhost:3000',

@@ -16,6 +16,8 @@
     "test:unit": "jest tests/unit",
     "test:integration": "jest tests/integration",
     "test:e2e": "playwright test",
+    "test:e2e:user-flows": "playwright test --project=stubbed",
+    "test:e2e:live": "BASE_URL=http://localhost:3000 playwright test --project=live-local",
     "test:coverage": "jest --coverage",
     "test:watch": "jest --watch",
     "test:e2e:services": "jest --config tests/e2e/services/helpers/jest.e2e.services.config.js --runInBand",
@@ -70,6 +72,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.10.2",
     "@eslint/js": "^9.34.0",
     "@next/eslint-plugin-next": "^15.5.2",
     "@playwright/test": "^1.55.0",
@@ -91,14 +94,17 @@
     "eslint-plugin-prettier": "^5.5.4",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^5.2.0",
+    "faker": "^6.6.6",
     "jest": "^30.1.1",
     "jest-axe": "^10.0.0",
     "jest-environment-jsdom": "^30.1.1",
     "jest-fetch-mock": "^3.0.3",
+    "lighthouse": "^12.8.2",
     "pino-pretty": "^13.1.1",
     "prettier": "^3.6.2",
     "supertest": "^7.1.4",
-    "ts-jest": "^29.4.1"
+    "ts-jest": "^29.4.1",
+    "wait-for-expect": "^4.0.0"
   },
   "engines": {
     "node": ">=22.0.0",

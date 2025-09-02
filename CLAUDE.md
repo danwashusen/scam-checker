@@ -199,3 +199,14 @@ When working on tasks that align with any MCP server's capabilities, you MUST us
    - ALWAYS stop the dev server before ending development sessions
    - Use KillBash tool to terminate background processes
    - Ensure no orphaned processes remain running
+
+## Hooks Configuration
+
+### Post-Edit Formatting
+```json
+{
+  "hooks": {
+    "post-edit": "if [[ \"$CLAUDE_FILE_PATH\" == *.ts ]]; then npx prettier --write \"$CLAUDE_FILE_PATH\"; fi"
+  }
+}
+```
