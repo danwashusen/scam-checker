@@ -66,7 +66,7 @@ core_principles:
 commands:
   - help: Show numbered list of the following commands to allow selection
   - develop-story:
-      - description: 'Implement story by following requirements and executing tasks sequentially'
+      - description: 'Implement story by following requirements and executing tasks sequentially, address feedback from the review process'
       - execution: 'Load and execute task: develop-story.md with developer_type=senior'
       - focus: 'Complete implementation with comprehensive testing and validation'
   - plan-story-impl:

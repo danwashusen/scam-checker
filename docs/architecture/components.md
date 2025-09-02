@@ -23,7 +23,7 @@
 **Key Interfaces:**
 - `analyzeURL(request: AnalysisRequest): Promise<AnalysisResult>`
 - `getCachedResult(url: string): Promise<AnalysisResult | null>`
-**Technology Stack:** AWS Lambda function (Node.js 22), TypeScript, async/await orchestration
+**Technology Stack:** AWS Lambda function (Node.js 22), TypeScript 5.9.2, async/await orchestration
 
 ### CacheManager
 **Responsibility:** Abstract caching interface with pass-through default implementation

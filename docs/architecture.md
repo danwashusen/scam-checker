@@ -683,54 +683,81 @@ scam-checker/
     ├── epic-*.md                      # Epic documentation files
     └── stories/                       # User story files
 ```
-
 ## Development Workflow
 
-### Local Development Setup
+### For Humans (Operator Flow)
+- Activate persona:
+  - Senior (James): `/BMad:agents:dev` (agent shows `*help`).
+  - Junior (Julee): `/BMad:agents:dev-junior` (agent shows `*help`).
+- Plan the story (complex step – planning mode recommended):
+  - Run `*plan-story-impl {story_path}`; review and iterate until the plan matches expectations.
+  - On acceptance, the plan is saved/updated at `docs/stories/{story-filename}-implementation-plan.md`.
+  - Note: “Enable Claude Code planning mode” applies to the planning step itself, not persona activation.
+- Implement the story (persona‑driven):
+  - As Julee: run `*develop-story {story_path}`. Junior requires a complete plan and follows it literally.
+  - As James: optionally use `*develop-story {story_path}` for senior‑led implementation.
+- Commands are persona‑driven: do not pass `developer_type`; behavior derives from the active agent persona.
+- Review implementation:
+  - As James: run `*review-story-impl {story_path}`; actionable feedback is added to the story (Must Fix, Should Improve, Consider for Future, Positives).
+- Address review feedback (persona‑driven):
+  - As Julee: run `*address-story-impl-review {story_path}`; resolve Must Fix first, then Should Improve.
+- Manual checkpoints: after planning, after implementation, and after addressing feedback, manually verify diffs and the story’s File List (AI can make mistakes).
 
-#### Prerequisites
-```bash
-node --version  # v22.x required
-npm --version   # v10.x or higher
-aws --version   # AWS CLI v2
-terraform --version  # v1.6.x
+### For Agents (Execution Protocols)
+- Planning (Senior): Produce and maintain a prescriptive implementation plan file adjacent to the story. The plan must include Architectural Decisions, Component Structure, Data Flow, Test Strategy, a Traceability Matrix mapping each Acceptance Criterion to concrete test IDs and modules, a Dependency Policy, Observability guidance, and Rollout/Recovery. Update Plan Amendments and Traceability whenever deviating.
+- Implementation (Senior & Junior):
+  - Preconditions: For junior work, a complete plan must exist. Halt if missing or incomplete.
+  - Process: Implement per plan and project standards (see [Coding Standards](#coding-standards)), enforce project structure (see [Unified Project Structure](#unified-project-structure)), and follow [Testing Strategy](#testing-strategy) for lane selection and coverage depth.
+  - Validation cadence: Run lint + type‑check (`npm run check`) and relevant tests after each meaningful change; seniors validate after every file change. Maintain the story’s File List accurately.
+  - UI work: Perform UI documentation checks before making UI/client changes (see [Frontend Architecture](#frontend-architecture) and [Front‑end Spec](./front-end-spec.md)).
+  - Constraints: Do not introduce unapproved dependencies; do not change API contracts unless explicitly documented in the plan and aligned with [API Specification](#api-specification). Timebox uncertainty and document questions (junior) or Plan Amendments (senior).
+- Review (Senior): Evaluate alignment with the plan, [Coding Standards](#coding-standards), Architecture, Security, Performance, and [Testing Strategy](#testing-strategy). Add a “Dev Review Feedback” section to the story with categorized items (Must Fix, Should Improve, Consider for Future, Positive Highlights). Block approval if traceability is broken, unapproved dependencies exist, undocumented API changes are detected, or project structure conventions are violated.
+- Addressing Feedback (Junior & Senior): Resolve Must Fix items first, then Should Improve. After each change, re‑run validations and targeted tests, update the story’s File List, and synchronize the plan (Traceability/Amendments). Prepare the story for final review with all validations green.
+
+Shared references: [Coding Standards](#coding-standards), [Testing Strategy](#testing-strategy), [API Specification](#api-specification), [Frontend Architecture](#frontend-architecture), [Unified Project Structure](#unified-project-structure).
+
+### Local Setup
+- Node v22.x; npm v10+; Playwright browsers (`npx playwright install --with-deps`).
+- App URL: `http://localhost:3000`. Support “live-local” tests using real dev DB and sandbox/test keys where applicable.
+
+### Story State Transitions
+- Draft → Approved → In Dev → Ready for Review → Changes Required | Approved → Done
+- Require passing validations/tests and complete artifacts (plan, File List, review section) at each transition.
+
+### Validations and Tests
+- Project validation: `npm run check` (lint + type-check).
+- Unit: `npm run test:unit`; Integration: `npm run test:integration`.
+- E2E UI: Playwright projects below; run user-flows on PRs, live-local on demand/nightly.
+- Cadence: Senior after each file; Junior frequently + at checkpoints; halt on repeated failures/timeboxes.
+
+### Playwright Projects (Canonical)
+- Projects are defined in `playwright.config.ts`:
+  - `stubbed` → `testMatch` targets `tests/e2e/user-flows/**`. Use stubs via test fixtures (e.g., `page.route`) to stabilize external/unstable endpoints.
+  - `live-local` → `testMatch` targets `tests/e2e/live/**`. No stubs; `workers: 1` to avoid state bleed and API limits.
+
+### Test Lanes and Structure
 ```
-
-#### Development Commands
-```bash
-# Start all services (frontend + mock API)
-npm run dev
-
-# Run tests
-npm run test                 # All tests
-npm run test:unit            # Unit tests only
-npm run test:integration     # Integration tests (mocked external services)
-npm run test:e2e             # E2E UI tests (Playwright)
-npm run test:e2e:services    # E2E service tests (real external APIs)
-
-# Build commands
-npm run build         # Build frontend
-npm run build:lambda  # Build Lambda functions
+tests/
+  unit/                      # Jest unit
+  integration/               # Jest integration
+  e2e/
+    user-flows/              # Deterministic, stubbed browser flows  (PR-blocking)
+    live/                    # Live-local flows, real DB + real APIs (optional)
 ```
+- Deterministic user-flows: critical journeys + 1–2 edges; stabilize via routing/mocks and fixed seeds/time.
+- Live-local flows: minimal coverage of core journeys; hit real providers with test/sandbox creds.
 
-### Development Process Requirements
+### Required Scripts
+- `test` → `jest --coverage`
+- `test:unit` → `jest tests/unit`
+- `test:integration` → `jest tests/integration`
+- `test:e2e:user-flows` → `playwright test --project=stubbed`
+- `test:e2e:live` → `BASE_URL=http://localhost:3000 playwright test --project=live-local`
 
-#### External Service Integration Development
-
-When developing or modifying services in `src/lib/analysis/` that integrate with external APIs:
-
-1. Unit Tests First: Write comprehensive unit tests with mocked external services
-   - Mock all external API calls using msw/nock or similar
-   - Test business logic, edge cases, and error scenarios
-   - Achieve minimum 80% coverage
-2. E2E Service Test Requirement: Create corresponding E2E test in `tests/e2e/services/`
-   - Naming: `{service-name}.e2e.ts` (e.g., `reputation-service.e2e.ts`)
-   - Purpose: Verify integration wiring with real external endpoints
-   - Scope: Authentication, request/response format, and basic error handling
-3. CI/CD Integration: Both test suites must pass before deployment
-   - Unit/integration tests on every commit
-   - E2E service tests before production deployment; failures block deploy
-
+### Data, Auth, Stability
+- Auth: optionally generate and reuse a `storageState` in global setup.
+- Data: seed through API/DB helpers; tests must not depend on order. Clean up in live tests.
+- Stability: eliminate randomness/time in stubbed flows using deterministic seeds and frozen clocks where applicable.
 ## Deployment Architecture
 
 ### Deployment Strategy
@@ -778,72 +805,98 @@ When developing or modifying services in `src/lib/analysis/` that integrate with
 **Backend Performance:**
 - Response Time Target: < 3 seconds for complete analysis
 - Caching Strategy: NoOp cache initially, future DynamoDB with 24-hour TTL
-
 ## Testing Strategy
-
-### Testing Pyramid
-
+### Pyramid & ownership
 ```
-         E2E Tests (10%)
-        /           \
-    Integration Tests (30%)
-    /                    \
-Frontend Unit (30%)  Backend Unit (30%)
+         E2E (10%)  → Playwright
+      Integration (30%) → Jest (+ Supertest / MSW)
+Unit & Component (60%) → Jest + React Testing Library
 ```
+- **Do not expand E2E to compensate for missing unit/integration tests.** Keep E2E fast and purposeful.
 
-### Test Organization
-
-The testing structure follows a dedicated top-level `tests/` directory with explicit separation of concerns:
-
-#### Directory Structure
+## Directories (authoritative)
 ```
 tests/
-├── __mocks__/                   # Mock implementations
-├── unit/                        # Unit tests
-│   ├── components/              # Frontend component tests
-│   ├── services/                # Backend service tests
-│   ├── utils/                   # Utility function tests
-│   └── lib/                     # Library tests
-├── integration/                 # Integration tests
-│   ├── api/                     # API endpoint tests
-│   ├── services/                # Service integration tests
-│   └── workflows/               # End-to-end workflow tests
-└── e2e/                         # End-to-end browser tests
-    ├── user-flows/              # Complete user journey tests
-    ├── api-scenarios/           # API scenario tests
-    ├── cross-browser/           # Browser compatibility tests
-    └── services/                # Real external service integration tests
+  unit/
+    components/      # React components (RTL)
+    services/        # Backend/service units
+    utils/           # Pure utilities
+    lib/             # Frontend libs (validation, api-client, etc.)
+  integration/
+    api/             # Route handlers / Lambda handlers w/ Supertest
+    services/        # Service composition + config edges
+    workflows/       # API-level workflows (no browser)
+  e2e/
+    user-flows/      # Stubbed browser flows (deterministic)
+    live/            # Live-local browser flows (real services)
 ```
+### E2E — User-flows (deterministic, PR-blocking)
+**Purpose:** Validate business-critical journeys in the browser, quickly and deterministically.
 
-#### Test Types and Locations
+**Prescriptions**
+- **Locators:** `getByRole` / `getByLabel` / `getByPlaceholder` or `getByTestId`. Add stable `data-testid` where needed.
+- **Auto-wait:** use locator API; never `waitForTimeout`.
+- **Stubs:** route only *external and flaky* calls (e.g., Safe Browsing, WHOIS, AI). Keep contract-level assertions minimal.
+- **Tame UI flake:** disable animations; set `timezoneId: 'Australia/Melbourne'`, `locale: 'en-AU'`.
+- **Artifacts:** `trace: 'on-first-retry'`, screenshots/videos on failure.
+- **Scope:** happy path + one failure path per journey. Push branching to unit/integration.
+### E2E — Live-local (real DB + real APIs, optional/nightly)
+**Purpose:** Smoke the **real wiring** end-to-end on the local dev stack.
 
-- Unit Tests: `tests/unit/` - Test functions, components, and classes in isolation
-- Integration Tests: `tests/integration/` - Test components working together and API endpoints
-- E2E UI Tests: `tests/e2e/` - Complete user workflows using Playwright/Cypress
-- E2E Service Tests: `tests/e2e/services/` - Real external API integrations
+**Prescriptions**
+- **No stubs.** The app must be configured with **provider sandbox/test keys**.
+- **Isolation:** per-test tenant/user; clean up after.
+- **Concurrency:** `workers: 1` (serialize) unless proven safe.
+- **Small surface:** ~3–6 flows max (login, analyze URL, error path, uploads/email loops).
+- **CI:** run nightly and on demand; non-blocking for PRs but tracked.
+### Integration tests (Jest)
+**Purpose:** Validate module composition and external edges without the browser.
 
-#### Required E2E Service Tests
+**Prescriptions**
+- **API routes / Lambdas:** test with **Supertest** (or framework request helpers) in a node environment; cover auth, validation, error mapping, and 3P failure modes.
+- **HTTP boundaries:** use **MSW (node)** to simulate external HTTP (Safe Browsing, WHOIS, AI). Prefer MSW over ad-hoc `nock` for unified mocks across browser/node.
+- **Config matrix:** run with representative environment flags (feature toggles, cache on/off).
+### Unit tests (Jest)
+**Purpose:** Validate pure logic deterministically and exhaustively.
 
-- Reputation Service: `tests/e2e/services/reputation-service.e2e.ts`
-- WHOIS Service: `tests/e2e/services/whois-service.e2e.ts`
-- AI Service: `tests/e2e/services/ai-service.e2e.ts`
-- SSL Service: `tests/e2e/services/ssl-service.e2e.ts`
+**Prescriptions**
+- **Targets:** scoring, validators (Zod schemas), normalization, mappers, small services.
+- **Granularity:** single responsibility per test; table-driven when useful.
+- **Snapshots:** only for stable, intentionally serialized output; otherwise prefer explicit assertions.
+- **Coverage:** 80%+ per package; do not chase coverage with meaningless tests.
+### React component tests (Jest + RTL)
+**Purpose:** Validate component contracts and user-observable behavior.
 
-#### E2E Service Test Configuration
-
-- Separate suite: run with `npm run test:e2e:services`
-- Use dedicated test API keys and safe test domains
-- Respect rate limits; implement delays as needed
-- Graceful failure with clear error messages when services unavailable
-
-#### File Naming Conventions
-
-- Unit tests: `*.test.ts` or `*.spec.ts`
-- Integration tests: `*.integration.test.ts`
-- E2E tests: `*.e2e.test.ts`
-
-Coverage target: 80% minimum across all test types
-
+**Prescriptions**
+- **Queries first:** `getByRole` / `getByLabel` / `getByText` (avoid class/DOM structure assertions).
+- **Stateful UI:** test interactions (typing, clicking, toggling view modes), not implementation details.
+- **Network:** mock via **MSW (browser)**; assert user-visible outcomes (spinners, errors, rendered results).
+- **Accessibility:** ensure roles/names are present; include at least one expectation that would fail on an a11y regression per complex component.
+### Mocking policy (Jest) — opinionated
+1. **Mock at the boundary.**  
+   - External HTTP (Safe Browsing, WHOIS, AI): **MSW** only.  
+   - Time/randomness: `jest.useFakeTimers()` + seeded randomness.  
+   - File/OS/crypto only if necessary; prefer real implementations in Node where stable.
+2. **Don’t mock what you own.**  
+   - Internal modules/services should be tested *real* in unit/integration unless isolation is required for a specific failure mode. Prefer **spies** (`jest.spyOn`) over full module mocks to assert calls.
+3. **Determinism > cleverness.**  
+   - No network in unit/integration tests; no sleeps; no real time.  
+   - Stick to **fixed inputs and explicit assertions**. Avoid broad snapshots.
+4. **One source of truth for HTTP mocks.**  
+   - Reuse **MSW handlers** across unit (node), integration, and RTL tests to keep contracts consistent. Handlers live in `tests/__mocks__/http/…`.
+5. **Contract tests for external APIs.**  
+   - For each provider, include: happy path, rate limit, timeout, malformed response. Handlers mimic real payloads.
+### Playwright configuration (normative)
+- Two projects:
+  - `stubbed` → `testMatch: ['e2e/user-flows/**/*.spec.ts']`, fixture enables stubs via `page.route`.
+  - `live-local` → `testMatch: ['e2e/live/**/*.spec.ts']`, fixture **does not** install routes; `workers: 1`.
+- Shared `use`: `baseURL` (env-overrideable), `testIdAttribute: 'data-testid'`, `trace`, `screenshot`, `video`, `timezoneId`, `locale`.
+### Test data & factories
+- Use minimal **factory utilities** (plain functions or `@faker-js/faker` with a fixed seed) per domain type.  
+- Keep factories in `tests/__mocks__/factories/**`. Never inline opaque JSON blobs in tests.
+### Required scripts
+- `test`, `test:unit`, `test:integration`, `test:e2e:user-flows`, `test:e2e:live`, `test:all` (run live last).
+- CI must treat `test:e2e:user-flows` as **required**; schedule `test:e2e:live` nightly.
 ## Frontend Component Implementation Guidelines
 
 Always use shadcn/ui components before creating custom implementations.

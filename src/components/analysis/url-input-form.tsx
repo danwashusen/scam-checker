@@ -132,30 +132,81 @@ export function UrlInputForm({
     }
   }, [onSubmit, showToast, form])
 
-  // Real-time validation feedback with debouncing
+  // Enhanced state management with unified validation tracking
   const watchedUrl = form.watch('url')
-  const [debouncedUrl, setDebouncedUrl] = React.useState(watchedUrl)
+  const [formState, setFormState] = React.useState({
+    url: initialValue,
+    normalizedUrl: initialValue,
+    validationState: 'idle' as 'idle' | 'validating' | 'valid' | 'invalid',
+    validationTimestamp: 0,
+    error: null as string | null,
+    isSubmitting: false,
+  })
 
+  // Sync form state on mount to eliminate race conditions
+  React.useEffect(() => {
+    const currentUrl = form.getValues('url')
+    setFormState(prev => ({
+      ...prev,
+      url: currentUrl,
+      normalizedUrl: currentUrl.startsWith('http') ? currentUrl : `https://${currentUrl}`,
+    }))
+  }, [form])
+
+  // Enhanced debounced validation with 300ms timing
   React.useEffect(() => {
     const timer = setTimeout(() => {
-      setDebouncedUrl(watchedUrl)
-    }, 100) // 100ms debounce
+      if (watchedUrl) {
+        setFormState(prev => ({ ...prev, validationState: 'validating' }))
+        
+        // Normalize URL for display
+        const normalizedUrl = watchedUrl.startsWith('http') ? watchedUrl : `https://${watchedUrl}`
+        
+        // Trigger validation
+        form.trigger('url').then((isValid) => {
+          setFormState(prev => ({
+            ...prev,
+            url: watchedUrl,
+            normalizedUrl,
+            validationState: isValid ? 'valid' : 'invalid',
+            validationTimestamp: Date.now(),
+            error: isValid ? null : 'Please enter a valid URL',
+          }))
+          
+          // If valid and we normalized the URL (added protocol), update the input field
+          // This ensures browser native validation passes for form submission
+          if (isValid && normalizedUrl !== watchedUrl) {
+            form.setValue('url', normalizedUrl, { 
+              shouldValidate: false, // Don't retrigger validation
+              shouldDirty: true 
+            })
+          }
+        })
+      } else {
+        setFormState(prev => ({ 
+          ...prev, 
+          validationState: 'idle',
+          error: null,
+        }))
+      }
+    }, 300) // Increased to 300ms for better UX
 
     return () => clearTimeout(timer)
-  }, [watchedUrl])
+  }, [watchedUrl, form])
 
-  // Trigger validation when debounced value changes
-  React.useEffect(() => {
-    if (debouncedUrl && debouncedUrl !== form.getValues('url')) {
-      form.trigger('url')
-    }
-  }, [debouncedUrl, form])
+  // Derived state from single source of truth
+  const isSubmitting = form.formState.isSubmitting || formState.isSubmitting
+  const isButtonEnabled = React.useMemo(() => {
+    return formState.validationState === 'valid' && 
+           !isSubmitting &&
+           formState.url.length > 0
+  }, [formState, isSubmitting])
 
   // Keyboard shortcuts
   React.useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.target === document.activeElement) {
-        if (event.key === 'Enter' && form.formState.isValid) {
+        if (event.key === 'Enter' && isButtonEnabled) {
           form.handleSubmit(handleSubmit)()
         } else if (event.key === 'Escape') {
           form.reset()
@@ -169,11 +220,32 @@ export function UrlInputForm({
 
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [form, handleSubmit])
+  }, [form, handleSubmit, isButtonEnabled])
 
-  const isSubmitting = form.formState.isSubmitting
-  const hasErrors = Object.keys(form.formState.errors).length > 0
-  const isValid = form.formState.isValid && watchedUrl.length > 0
+  // Debug utilities (development only) - Fixed hydration issue
+  const isDebugMode = process.env.NODE_ENV === 'development'
+  const [debugTimestamp, setDebugTimestamp] = React.useState<string>('--')
+  
+  // Update timestamp only on client-side to avoid hydration mismatch
+  React.useEffect(() => {
+    if (isDebugMode) {
+      setDebugTimestamp(new Date().toISOString())
+    }
+  }, [formState.validationTimestamp, isDebugMode])
+  
+  const debugInfo = React.useMemo(() => ({
+    formState: formState,
+    reactHookFormState: {
+      isValid: form.formState.isValid,
+      isSubmitting: form.formState.isSubmitting,
+      errors: form.formState.errors,
+      touchedFields: form.formState.touchedFields,
+      dirtyFields: form.formState.dirtyFields,
+    },
+    watchedUrl,
+    isButtonEnabled,
+    timestamp: debugTimestamp,
+  }), [formState, form.formState, watchedUrl, isButtonEnabled, debugTimestamp])
 
   return (
     <Card className={cn('w-full max-w-2xl', className)}>
@@ -199,6 +271,23 @@ export function UrlInputForm({
                     <div className="relative">
                       <Input
                         {...field}
+                        onChange={(e) => {
+                          const value = e.target.value
+                          // Update form field
+                          field.onChange(e)
+                          
+                          // Early protocol normalization for better UX
+                          const normalizedUrl = value && !value.startsWith('http') 
+                            ? `https://${value}` 
+                            : value
+                          
+                          // Update our internal state immediately for visual feedback
+                          setFormState(prev => ({
+                            ...prev,
+                            url: value,
+                            normalizedUrl,
+                          }))
+                        }}
                         type="url"
                         inputMode="url"
                         autoComplete="url"
@@ -209,14 +298,15 @@ export function UrlInputForm({
                         autoFocus={autoFocus} // eslint-disable-line jsx-a11y/no-autofocus
                         className={cn(
                           'pr-24 h-12 text-base',
-                          isValid && 'border-green-500 focus-visible:ring-green-500',
-                          hasErrors && 'border-destructive focus-visible:ring-destructive'
+                          formState.validationState === 'valid' && 'border-green-500 focus-visible:ring-green-500',
+                          formState.validationState === 'invalid' && 'border-destructive focus-visible:ring-destructive',
+                          formState.validationState === 'validating' && 'border-blue-500 focus-visible:ring-blue-500'
                         )}
                         aria-describedby="url-description url-error"
                       />
                       <Button
                         type="submit"
-                        disabled={disabled || isSubmitting || !isValid}
+                        disabled={disabled || !isButtonEnabled}
                         className={cn(
                           'absolute right-0 top-0 h-12 px-4',
                           'min-w-[80px]' // Ensure consistent width
@@ -238,12 +328,67 @@ export function UrlInputForm({
                   <FormDescription id="url-description">
                     Enter a URL to check for potential security risks
                   </FormDescription>
+                  
+                  {/* Show transformation feedback */}
+                  {formState.url !== formState.normalizedUrl && formState.url && (
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      Will analyze: <code className="text-blue-600">{formState.normalizedUrl}</code>
+                    </div>
+                  )}
+                  
+                  {/* Show validation state */}
+                  {formState.validationState === 'validating' && (
+                    <div className="mt-1 text-xs text-blue-600">
+                      Validating URL...
+                    </div>
+                  )}
                   <FormMessage id="url-error" role="alert" />
                 </FormItem>
               )}
             />
           </form>
         </Form>
+        
+        {/* Debug Panel - Development Only */}
+        {isDebugMode && (
+          <div className="mt-4 p-4 bg-gray-100 dark:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-700">
+            <h4 className="text-sm font-semibold mb-2 text-gray-900 dark:text-gray-100">Debug Information</h4>
+            <div className="space-y-2 text-xs font-mono text-gray-700 dark:text-gray-300">
+              <div>
+                <strong className="text-gray-900 dark:text-gray-100">Validation State:</strong> {formState.validationState}
+              </div>
+              <div>
+                <strong className="text-gray-900 dark:text-gray-100">Button Enabled:</strong> {isButtonEnabled ? 'Yes' : 'No'}
+              </div>
+              <div>
+                <strong className="text-gray-900 dark:text-gray-100">Current URL:</strong> {formState.url || '(empty)'}
+              </div>
+              <div>
+                <strong className="text-gray-900 dark:text-gray-100">Normalized URL:</strong> {formState.normalizedUrl || '(empty)'}
+              </div>
+              <div>
+                <strong className="text-gray-900 dark:text-gray-100">Validation Timestamp:</strong> {formState.validationTimestamp ? new Date(formState.validationTimestamp).toLocaleTimeString() : 'Never'}
+              </div>
+              <div>
+                <strong className="text-gray-900 dark:text-gray-100">Form Valid:</strong> {form.formState.isValid ? 'Yes' : 'No'}
+              </div>
+              <div>
+                <strong className="text-gray-900 dark:text-gray-100">Submitting:</strong> {isSubmitting ? 'Yes' : 'No'}
+              </div>
+              {formState.error && (
+                <div>
+                  <strong className="text-gray-900 dark:text-gray-100">Error:</strong> {formState.error}
+                </div>
+              )}
+              <details className="mt-2">
+                <summary className="cursor-pointer text-gray-900 dark:text-gray-100">Full Debug Data</summary>
+                <pre className="mt-2 text-xs overflow-auto max-h-40 text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-900 p-2 rounded border border-gray-200 dark:border-gray-600">
+                  {JSON.stringify(debugInfo, null, 2)}
+                </pre>
+              </details>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   )

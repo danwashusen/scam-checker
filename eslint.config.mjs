@@ -5,6 +5,7 @@ import nextPlugin from '@next/eslint-plugin-next';
 import reactPlugin from 'eslint-plugin-react';
 import reactHooksPlugin from 'eslint-plugin-react-hooks';
 import jsxA11yPlugin from 'eslint-plugin-jsx-a11y';
+import prettierConfig from 'eslint-config-prettier';
 
 export default [
   {
@@ -160,5 +161,7 @@ export default [
         typescript: {}
       }
     }
-  }
+  },
+  // Prettier config must be last to override other formatting rules
+  prettierConfig
 ];

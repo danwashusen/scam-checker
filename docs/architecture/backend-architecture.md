@@ -27,16 +27,12 @@ lambda/
     └── errors.ts               # Error handling
 ```
 
-### Service Factory Pattern
+### Service Factory and Builder
 
-The backend uses a **Factory Pattern with Builder** to manage service instantiation, replacing singleton patterns for better testability and configuration management.
-
-#### ServiceFactory Class
-
-**Purpose:** Centralized service creation with configuration support
-**Location:** `src/lib/services/service-factory.ts`
+The backend uses a Factory Pattern with a Builder to manage service instantiation, replacing singletons for better testability and configuration management.
 
 ```typescript
+// services/service-factory.ts
 export class ServiceFactory {
   static createReputationService(config?: Partial<SafeBrowsingConfig>): ReputationService {
     return new ReputationService(config)
@@ -63,14 +59,8 @@ export class ServiceFactory {
     }
   }
 }
-```
 
-#### ServiceBuilder Pattern
-
-**Purpose:** Fluent API for complex service configuration
-**Location:** `src/lib/services/service-builder.ts`
-
-```typescript
+// services/service-builder.ts
 export class ServiceBuilder {
   private config: ServicesConfig = {}
 
@@ -88,14 +78,8 @@ export class ServiceBuilder {
     return ServiceFactory.createAnalysisServices(this.config)
   }
 }
-```
 
-#### Service Configuration
-
-Services are configured at Lambda function initialization:
-
-```typescript
-// lambda/functions/analyze/handler.ts
+// functions/analyze/handler.ts
 const services = new ServiceBuilder()
   .withEnvironment(process.env.NODE_ENV as any)
   .withReputationConfig({
@@ -103,20 +87,7 @@ const services = new ServiceBuilder()
     timeout: 5000
   })
   .build()
-
-export const handler = async (event: APIGatewayProxyEvent) => {
-  const orchestrator = new AnalysisOrchestrator(services)
-  // ... handler logic
-}
 ```
-
-### Benefits of Factory Pattern
-
-- **Testability:** Easy to inject mock services in unit tests
-- **Configuration:** Environment-specific service configuration
-- **Isolation:** No shared state between Lambda invocations
-- **Flexibility:** Runtime service selection based on conditions
-- **Type Safety:** Full TypeScript support with proper inference
 
 ## Authentication and Authorization
 

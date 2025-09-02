@@ -1,8 +1,8 @@
 # Frontend Architecture
 
-## Project Tree Structure
+## Component Architecture
 
-### Complete Frontend Organization
+### Project Tree (src-rooted)
 ```
 scam-checker/
 ├── src/                              # Application source code
@@ -67,84 +67,6 @@ scam-checker/
     └── favicon.ico                   # Site favicon
 ```
 
-## Component Architecture
-
-### Design Principles
-- **Feature-First Organization**: Components grouped by functionality (ui, analysis, layout)
-- **Single Responsibility**: Each component has one clear purpose
-- **Composition Over Inheritance**: Use composition patterns for flexibility
-- **Accessibility First**: All components built with WCAG 2.1 compliance
-- **Performance Optimized**: Lazy loading and code splitting by feature
-
-### Component Categories
-
-#### Base UI Components (`src/components/ui/`)
-**Purpose**: Foundational design system components using shadcn/ui
-- **Reusable across entire application**
-- **Consistent styling and behavior**
-- **Accessibility built-in**
-- **Customizable via props and CSS variables**
-
-```typescript
-// Example: button.tsx
-export interface ButtonProps {
-  variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link'
-  size?: 'default' | 'sm' | 'lg' | 'icon'
-  children: React.ReactNode
-}
-```
-
-#### Analysis Components (`src/components/analysis/`)
-**Purpose**: Domain-specific components for URL analysis functionality
-- **Business logic integration**
-- **State management via hooks**
-- **API communication**
-- **Complex user interactions**
-
-```typescript
-// Example: url-input-form.tsx
-export interface URLInputFormProps {
-  onSubmit: (url: string) => Promise<void>
-  isLoading?: boolean
-  initialValue?: string
-  validationRules?: ValidationRule[]
-}
-```
-
-#### Layout Components (`src/components/layout/`)
-**Purpose**: Application structure and navigation
-- **Page layout consistency**
-- **Navigation state management**
-- **Responsive design patterns**
-- **SEO optimization**
-
-### Component Communication Patterns
-
-#### Props Down, Events Up
-```typescript
-// Parent passes data down, child emits events up
-<URLAnalysisForm 
-  onSubmit={handleURLSubmit}
-  isLoading={analysis.isLoading}
-  validationRules={urlValidationRules}
-/>
-```
-
-#### Context for Cross-Component State
-```typescript
-// Theme context for UI consistency
-const ThemeContext = createContext<{
-  theme: 'light' | 'dark'
-  toggleTheme: () => void
-}>()
-```
-
-#### Custom Hooks for Logic Reuse
-```typescript
-// Encapsulate complex state logic in hooks
-const { analyzeURL, result, isLoading, error } = useAnalysis()
-```
-
 ## State Management Architecture
 
 ### State Structure
@@ -174,8 +96,9 @@ class ApiClient {
   private baseUrl: string;
   private apiKey?: string;
   
-  constructor() {
-    this.baseUrl = process.env.NEXT_PUBLIC_API_URL || '/api';
+  constructor(config?: { baseUrl?: string; apiKey?: string }) {
+    this.baseUrl = config?.baseUrl || process.env.NEXT_PUBLIC_API_URL || '/api';
+    this.apiKey = config?.apiKey;
   }
   
   async analyze(url: string, options?: AnalysisOptions): Promise<AnalysisResult> {
@@ -186,5 +109,7 @@ class ApiClient {
   }
 }
 
-export const apiClient = new ApiClient();
+// Factory function (preferred over singletons for testability)
+export const createApiClient = (config?: Parameters<typeof ApiClient>[0]) => 
+  new ApiClient(config);
 ```

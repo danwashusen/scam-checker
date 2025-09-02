@@ -14,8 +14,6 @@ servers:
     description: Production API
   - url: https://staging-api.scam-checker.example.com/v1  
     description: Staging API
-  - url: http://localhost:3000/api
-    description: Local development API (E2E testing)
 
 paths:
   /analyze:

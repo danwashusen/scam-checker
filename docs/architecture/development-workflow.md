@@ -1,95 +1,75 @@
 # Development Workflow
 
-## Local Development Setup
+## For Humans (Operator Flow)
+- Activate persona:
+  - Senior (James): `/BMad:agents:dev` (agent shows `*help`).
+  - Junior (Julee): `/BMad:agents:dev-junior` (agent shows `*help`).
+- Plan the story (complex step – planning mode recommended):
+  - Run `*plan-story-impl {story_path}`; review and iterate until the plan matches expectations.
+  - On acceptance, the plan is saved/updated at `docs/stories/{story-filename}-implementation-plan.md`.
+  - Note: “Enable Claude Code planning mode” applies to the planning step itself, not persona activation.
+- Implement the story (persona‑driven):
+  - As Julee: run `*develop-story {story_path}`. Junior requires a complete plan and follows it literally.
+  - As James: optionally use `*develop-story {story_path}` for senior‑led implementation.
+- Commands are persona‑driven: do not pass `developer_type`; behavior derives from the active agent persona.
+- Review implementation:
+  - As James: run `*review-story-impl {story_path}`; actionable feedback is added to the story (Must Fix, Should Improve, Consider for Future, Positives).
+- Address review feedback (persona‑driven):
+  - As Julee: run `*address-story-impl-review {story_path}`; resolve Must Fix first, then Should Improve.
+- Manual checkpoints: after planning, after implementation, and after addressing feedback, manually verify diffs and the story’s File List (AI can make mistakes).
 
-### Prerequisites
-```bash
-node --version  # v22.x required
-npm --version   # v10.x or higher
-aws --version   # AWS CLI v2
-terraform --version  # v1.6.x
+## For Agents (Execution Protocols)
+- Planning (Senior): Produce and maintain a prescriptive implementation plan file adjacent to the story. The plan must include Architectural Decisions, Component Structure, Data Flow, Test Strategy, a Traceability Matrix mapping each Acceptance Criterion to concrete test IDs and modules, a Dependency Policy, Observability guidance, and Rollout/Recovery. Update Plan Amendments and Traceability whenever deviating.
+- Implementation (Senior & Junior):
+  - Preconditions: For junior work, a complete plan must exist. Halt if missing or incomplete.
+  - Process: Implement per plan and project standards (see [Coding Standards](#coding-standards)), enforce project structure (see [Unified Project Structure](#unified-project-structure)), and follow [Testing Strategy](#testing-strategy) for lane selection and coverage depth.
+  - Validation cadence: Run lint + type‑check (`npm run check`) and relevant tests after each meaningful change; seniors validate after every file change. Maintain the story’s File List accurately.
+  - UI work: Perform UI documentation checks before making UI/client changes (see [Frontend Architecture](#frontend-architecture) and [Front‑end Spec](./front-end-spec.md)).
+  - Constraints: Do not introduce unapproved dependencies; do not change API contracts unless explicitly documented in the plan and aligned with [API Specification](#api-specification). Timebox uncertainty and document questions (junior) or Plan Amendments (senior).
+- Review (Senior): Evaluate alignment with the plan, [Coding Standards](#coding-standards), Architecture, Security, Performance, and [Testing Strategy](#testing-strategy). Add a “Dev Review Feedback” section to the story with categorized items (Must Fix, Should Improve, Consider for Future, Positive Highlights). Block approval if traceability is broken, unapproved dependencies exist, undocumented API changes are detected, or project structure conventions are violated.
+- Addressing Feedback (Junior & Senior): Resolve Must Fix items first, then Should Improve. After each change, re‑run validations and targeted tests, update the story’s File List, and synchronize the plan (Traceability/Amendments). Prepare the story for final review with all validations green.
+
+Shared references: [Coding Standards](#coding-standards), [Testing Strategy](#testing-strategy), [API Specification](#api-specification), [Frontend Architecture](#frontend-architecture), [Unified Project Structure](#unified-project-structure).
+
+## Local Setup
+- Node v22.x; npm v10+; Playwright browsers (`npx playwright install --with-deps`).
+- App URL: `http://localhost:3000`. Support “live-local” tests using real dev DB and sandbox/test keys where applicable.
+
+## Story State Transitions
+- Draft → Approved → In Dev → Ready for Review → Changes Required | Approved → Done
+- Require passing validations/tests and complete artifacts (plan, File List, review section) at each transition.
+
+## Validations and Tests
+- Project validation: `npm run check` (lint + type-check).
+- Unit: `npm run test:unit`; Integration: `npm run test:integration`.
+- E2E UI: Playwright projects below; run user-flows on PRs, live-local on demand/nightly.
+- Cadence: Senior after each file; Junior frequently + at checkpoints; halt on repeated failures/timeboxes.
+
+## Playwright Projects (Canonical)
+- Projects are defined in `playwright.config.ts`:
+  - `stubbed` → `testMatch` targets `tests/e2e/user-flows/**`. Use stubs via test fixtures (e.g., `page.route`) to stabilize external/unstable endpoints.
+  - `live-local` → `testMatch` targets `tests/e2e/live/**`. No stubs; `workers: 1` to avoid state bleed and API limits.
+
+## Test Lanes and Structure
 ```
-
-### Development Commands
-```bash
-# Start all services (frontend + mock API)
-npm run dev
-
-# Run tests
-npm run test              # All tests
-npm run test:unit         # Unit tests only
-npm run test:integration  # Integration tests (mocked external services)
-npm run test:e2e         # All E2E tests
-npm run test:e2e:api     # E2E API endpoint tests (real external APIs)
-npm run test:e2e:api:watch # E2E API tests in watch mode
-npm run test:e2e:services # E2E service tests (real external APIs)
-npm run test:e2e:ui      # E2E UI tests (Playwright/Cypress)
-
-# Build commands
-npm run build         # Build frontend
-npm run build:lambda  # Build Lambda functions
+tests/
+  unit/                      # Jest unit
+  integration/               # Jest integration
+  e2e/
+    user-flows/              # Deterministic, stubbed browser flows  (PR-blocking)
+    live/                    # Live-local flows, real DB + real APIs (optional)
 ```
+- Deterministic user-flows: critical journeys + 1–2 edges; stabilize via routing/mocks and fixed seeds/time.
+- Live-local flows: minimal coverage of core journeys; hit real providers with test/sandbox creds.
 
-## Development Process Requirements
+## Required Scripts
+- `test` → `jest --coverage`
+- `test:unit` → `jest tests/unit`
+- `test:integration` → `jest tests/integration`
+- `test:e2e:user-flows` → `playwright test --project=stubbed`
+- `test:e2e:live` → `BASE_URL=http://localhost:3000 playwright test --project=live-local`
 
-### API Endpoint Development
-
-When developing or modifying API endpoints (e.g., `/api/analyze`):
-
-1. **Unit Tests First**: Write comprehensive unit tests with mocked dependencies
-   - Mock all service calls and external dependencies
-   - Test request validation and error handling
-   - Test response formatting and status codes
-   - Achieve minimum 80% test coverage
-
-2. **Integration Tests**: Create integration tests in `tests/integration/api/`
-   - Test endpoint with mocked external services
-   - Verify complete request/response flow
-   - Test middleware integration (auth, rate limiting, etc.)
-
-3. **E2E API Tests**: Create E2E tests in `tests/e2e/api/`
-   - Test file naming: `{endpoint-name}-route.e2e.ts`
-   - **Purpose**: Verify complete endpoint functionality with real services
-   - **Scope**: Full end-to-end testing without mocks
-   - **Requirements**:
-     - Real external service integration
-     - Complete response validation
-     - Performance measurement
-     - Error scenario handling
-
-4. **Debugging Support**: Enable flexible debugging via environment variables
-   - `TEST_URL`: Test specific URLs
-   - `DEBUG_E2E`: Enable verbose logging
-   - `API_BASE_URL`: Override API endpoint location
-
-### External Service Integration Development
-
-When developing or modifying services in `src/lib/analysis/` that integrate with external APIs:
-
-1. **Unit Tests First**: Write comprehensive unit tests with mocked external services
-   - Mock all external API calls using `msw`, `nock`, or similar
-   - Test all business logic, edge cases, and error scenarios
-   - Achieve minimum 80% test coverage
-
-2. **E2E Service Test Requirement**: Create corresponding E2E test in `tests/e2e/services/`
-   - Test file naming: `{service-name}.e2e.ts` (e.g., `reputation-service.e2e.ts`)
-   - **Purpose**: Verify integration wiring with real external endpoints
-   - **Scope**: Basic functionality only - not comprehensive edge case testing
-   - **Requirements**:
-     - Authentication/API key validation works
-     - Request format is accepted by external service
-     - Response format matches service expectations
-     - Basic error handling for service unavailability
-
-3. **CI/CD Integration**: Both test suites must pass before deployment
-   - Unit/integration tests run on every commit
-   - E2E service tests run before production deployment
-   - E2E service test failures block deployment
-
-### E2E Service Test Guidelines
-
-- **Environment Setup**: Use dedicated test API keys and test-safe domains
-- **Rate Limiting**: Implement appropriate delays between test runs
-- **Test Data**: Use predictable, safe test inputs (avoid random URLs)
-- **Error Handling**: Tests should gracefully handle external service outages
-- **Documentation**: Document any special test environment requirements
+## Data, Auth, Stability
+- Auth: optionally generate and reuse a `storageState` in global setup.
+- Data: seed through API/DB helpers; tests must not depend on order. Clean up in live tests.
+- Stability: eliminate randomness/time in stubbed flows using deterministic seeds and frozen clocks where applicable.

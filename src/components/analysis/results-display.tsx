@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useCallback } from "react"
+import React, { useState, useCallback, useEffect, useRef } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
@@ -108,11 +108,27 @@ export function ResultsDisplay({
   className
 }: ResultsDisplayProps) {
   const { view, toggleView } = useViewToggle('simple')
+  const resultsRef = useRef<HTMLDivElement>(null)
+
+  // Auto-scroll to results section when loading starts
+  useEffect(() => {
+    if (isLoading && resultsRef.current) {
+      // Small delay to ensure skeleton is rendered
+      const timeoutId = setTimeout(() => {
+        resultsRef.current?.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'start' 
+        })
+      }, 100)
+      
+      return () => clearTimeout(timeoutId)
+    }
+  }, [isLoading])
 
   // Handle error state
   if (error && !isLoading) {
     return (
-      <div className={cn("w-full", className)}>
+      <div ref={resultsRef} className={cn("w-full", className)}>
         <Alert variant="destructive">
           <AlertTriangle className="h-4 w-4" />
           <AlertTitle>Analysis Failed</AlertTitle>
@@ -140,7 +156,7 @@ export function ResultsDisplay({
   // Handle loading state
   if (isLoading) {
     return (
-      <div className={cn("w-full", className)}>
+      <div ref={resultsRef} className={cn("w-full", className)}>
         <ResultsLoadingSkeleton />
       </div>
     )
@@ -149,7 +165,7 @@ export function ResultsDisplay({
   // Handle no result state
   if (!result) {
     return (
-      <div className={cn("w-full text-center py-12", className)}>
+      <div ref={resultsRef} className={cn("w-full text-center py-12", className)}>
         <div className="text-muted-foreground">
           <p className="text-lg mb-2">No analysis results to display</p>
           <p className="text-sm">Enter a URL above to begin security analysis</p>
@@ -161,7 +177,7 @@ export function ResultsDisplay({
   // Main results display
   return (
     <ErrorBoundary fallback={ResultsErrorFallback}>
-      <div className={cn("w-full space-y-6", className)}>
+      <div ref={resultsRef} className={cn("w-full space-y-6", className)}>
         {/* Header with actions */}
         <div className="flex items-center justify-between">
           <div className="space-y-1">

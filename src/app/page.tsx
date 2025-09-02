@@ -56,7 +56,7 @@ export default function HomePage() {
           confidence: 0.85, // Default confidence for now
           findings: apiResult.factors?.map((factor: any, index: number) => ({
             id: `finding-${index}`,
-            type: factor.score > 0.5 ? 'negative' : 'positive',
+            type: factor.score > 0.5 ? 'positive' : 'negative',
             severity: factor.score > 0.7 ? 'high' : factor.score > 0.3 ? 'medium' : 'low',
             title: factor.type,
             description: factor.description,

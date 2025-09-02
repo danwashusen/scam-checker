@@ -21,36 +21,36 @@ export interface SimpleViewProps {
 const statusConfig = {
   safe: {
     icon: CheckCircle,
-    color: "text-green-600",
-    bgColor: "bg-green-50",
-    borderColor: "border-green-200",
+    color: "text-green-600 dark:text-green-400",
+    bgColor: "bg-green-50 dark:bg-green-950/20",
+    borderColor: "border-green-200 dark:border-green-800",
     badgeVariant: "default" as const,
     message: "This website appears safe to visit",
     recommendation: "Standard security checks passed. Always verify before sharing personal information."
   },
   moderate: {
     icon: Shield,
-    color: "text-amber-600",
-    bgColor: "bg-amber-50",
-    borderColor: "border-amber-200",
+    color: "text-amber-600 dark:text-amber-400",
+    bgColor: "bg-amber-50 dark:bg-amber-950/20",
+    borderColor: "border-amber-200 dark:border-amber-800",
     badgeVariant: "secondary" as const,
     message: "Exercise caution when visiting this website",
     recommendation: "Some risk indicators detected but no major red flags. Use standard web safety practices."
   },
   caution: {
     icon: AlertTriangle,
-    color: "text-amber-600",
-    bgColor: "bg-amber-50",
-    borderColor: "border-amber-200",
+    color: "text-amber-600 dark:text-amber-400",
+    bgColor: "bg-amber-50 dark:bg-amber-950/20",
+    borderColor: "border-amber-200 dark:border-amber-800",
     badgeVariant: "outline" as const,
     message: "Exercise caution when visiting this website",
     recommendation: "Multiple risk indicators detected. Avoid entering sensitive information."
   },
   danger: {
     icon: XCircle,
-    color: "text-red-600",
-    bgColor: "bg-red-50",
-    borderColor: "border-red-200",
+    color: "text-red-600 dark:text-red-400",
+    bgColor: "bg-red-50 dark:bg-red-950/20",
+    borderColor: "border-red-200 dark:border-red-800",
     badgeVariant: "destructive" as const,
     message: "This website may be dangerous to visit",
     recommendation: "Critical security threats detected. This site may attempt to steal your information or harm your device."

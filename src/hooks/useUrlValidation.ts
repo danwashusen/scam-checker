@@ -24,7 +24,7 @@ export interface UseURLValidationReturn {
 }
 
 const DEFAULT_OPTIONS: UseURLValidationOptions = {
-  debounceMs: 100, // Reduced from 300ms for faster feedback per Story 3-1
+  debounceMs: 300, // Increased to 300ms for better UX per Story 3-17
   validateOnChange: true,
   showSuggestions: true,
   autoCorrect: false,

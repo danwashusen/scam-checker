@@ -60,4 +60,6 @@ graph TB
 - **API Gateway Pattern:** Centralized external API orchestration - _Rationale:_ Manages rate limits, caching, and error handling for multiple external services
 - **Component-Based UI:** Reusable React components with shadcn/ui - _Rationale:_ Consistent dual-layer interface (simple + technical views)
 - **Repository Pattern:** Abstract external API access - _Rationale:_ Enables testing and easy service provider switching
+- **Factory Pattern:** Service instantiation with configuration injection - _Rationale:_ Eliminates singletons, improves testability, enables environment-specific configs
+- **Builder Pattern:** Fluent API for complex service configuration - _Rationale:_ Simplified service setup with type safety and environment defaults
 - **Cache-Aside Pattern:** In-memory result caching - _Rationale:_ Reduces external API costs and improves response times

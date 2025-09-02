@@ -60,22 +60,22 @@ const getIconForFinding = (finding: Finding) => {
 const getTypeStyles = (type: Finding['type'], _severity: Finding['severity']) => {
   const baseStyles = {
     positive: {
-      icon: "text-green-600",
-      bg: "bg-green-50",
-      border: "border-green-200",
-      badge: "bg-green-100 text-green-800"
+      icon: "text-green-600 dark:text-green-400",
+      bg: "bg-green-50 dark:bg-green-950/20",
+      border: "border-green-200 dark:border-green-800",
+      badge: "bg-green-100 text-green-800 dark:bg-green-950/40 dark:text-green-300"
     },
     negative: {
-      icon: "text-red-600", 
-      bg: "bg-red-50",
-      border: "border-red-200",
-      badge: "bg-red-100 text-red-800"
+      icon: "text-red-600 dark:text-red-400", 
+      bg: "bg-red-50 dark:bg-red-950/20",
+      border: "border-red-200 dark:border-red-800",
+      badge: "bg-red-100 text-red-800 dark:bg-red-950/40 dark:text-red-300"
     },
     neutral: {
-      icon: "text-blue-600",
-      bg: "bg-blue-50", 
-      border: "border-blue-200",
-      badge: "bg-blue-100 text-blue-800"
+      icon: "text-blue-600 dark:text-blue-400",
+      bg: "bg-blue-50 dark:bg-blue-950/20", 
+      border: "border-blue-200 dark:border-blue-800",
+      badge: "bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300"
     }
   }
   
