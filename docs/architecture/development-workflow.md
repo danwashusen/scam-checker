@@ -84,3 +84,9 @@ tests/
 - Auth: optionally generate and reuse a `storageState` in global setup.
 - Data: seed through API/DB helpers; tests must not depend on order. Clean up in live tests.
 - Stability: eliminate randomness/time in stubbed flows using deterministic seeds and frozen clocks where applicable.
+
+## Playwright MCP Lifecycle & Cleanup (mandatory)
+- Ownership: Any task that opens a Playwright MCP browser session must also close it before completing the task.
+- Close order: Close pages and contexts, then end the session via the MCP server’s provided close/shutdown action.
+- Required action: After finishing, invoke the MCP actions to close all created pages/contexts and terminate the MCP session. Do not leave sessions running between tasks.
+- Failure handling: If a task errors or is interrupted, perform an MCP cleanup step before exiting to ensure no sessions remain running.

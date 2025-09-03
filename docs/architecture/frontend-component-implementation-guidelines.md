@@ -38,4 +38,36 @@ Always use shadcn/ui components before creating custom implementations.
 ## Implementation Process
 Use `npx shadcn@latest add <component>` to add required components, implement, add tests, and document usage. Custom components must include a justification file and follow shadcn styling patterns.
 
+## Hydration Safety Checklist
+
+Before implementing any component with dynamic content, ensure SSR/CSR compatibility:
+
+**Required Checks:**
+- [ ] No Date/Time values in initial state (use static initial values)
+- [ ] No Math.random() or crypto.getRandomValues() in initial render
+- [ ] Client-only operations wrapped in useEffect with isClient guard
+- [ ] Form state properly initialized with consistent values
+- [ ] Debug information is hydration-safe (no dynamic timestamps)
+- [ ] Tested with multiple page reloads to verify event handlers remain bound
+
+**Safe Pattern Example:**
+```typescript
+// Client detection pattern for browser-only operations
+const [isClient, setIsClient] = useState(false)
+useEffect(() => {
+  setIsClient(true)
+}, [])
+
+// Use for any client-specific rendering
+if (isClient) {
+  // Browser-only code here
+}
+```
+
+**Common Hydration Pitfalls:**
+- Using `window`, `document`, or `localStorage` during initial render
+- Generating different IDs/keys on server vs client
+- Conditional rendering based on user-agent or browser detection
+- Dynamic timestamps or random values in initial state
+
 See detailed guidance in `docs/architecture/frontend-component-guidelines.md`.

@@ -21,20 +21,33 @@ Based on your PRD, this is a **brownfield project** built on **Next.js foundatio
 
 ### Platform and Infrastructure Choice
 
-**Platform:** AWS Full Stack (Single Region)
-**Key Services:** 
+**Current Platform:** Next.js Full-Stack Application (Development)
+**Production Platform:** AWS Serverless (Planned)
+
+**Current Implementation:**
+- **Frontend & Backend:** Next.js App Router with API routes
+- **Deployment:** Single Node.js process (development mode)
+- **Caching:** In-memory LRU cache with eviction policies
+- **External APIs:** Direct service integration
+- **Monitoring:** Console logging and built-in Next.js telemetry
+
+**Production Target (AWS Serverless):**
 - **Frontend:** S3 + CloudFront (global CDN)
-- **Backend:** Lambda + API Gateway  
-- **Caching:** Abstracted cache interface (NoOp initially, future DynamoDB)
+- **Backend:** Lambda functions + API Gateway
+- **Caching:** In-memory (Lambda) with DynamoDB persistence layer
 - **Monitoring:** CloudWatch + X-Ray
 - **CI/CD:** GitHub Actions + Terraform
 - **DNS:** Route 53
 
-**Deployment Regions:** Single region (us-east-1) with CloudFront global distribution
+**Deployment Strategy:** Dual-mode architecture supporting development simplicity and production scalability
 
 ### Technical Summary
 
-The Scam Checker employs a **simplified AWS serverless architecture** with Next.js frontend deployed via **S3/CloudFront** and **Lambda functions** handling API orchestration through **API Gateway**. The system uses an **abstracted caching interface** allowing flexible backend selection (NoOp initially, future DynamoDB) based on cost optimization, with **CloudWatch** for monitoring and **Terraform** for infrastructure as code.
+**Current Implementation:** The Scam Checker is built as a **Next.js full-stack application** with integrated API routes for development efficiency. It features a sophisticated **service orchestration layer** that coordinates parallel execution of analysis services (WHOIS, SSL, reputation, AI) through an abstraction pattern supporting multiple providers. The system implements **in-memory LRU caching** with eviction policies, memory tracking, and cache warming for optimal performance.
+
+**Production Evolution:** The architecture is designed for seamless migration to **AWS serverless infrastructure** where API routes become Lambda functions, static assets deploy to S3/CloudFront, and caching extends to DynamoDB persistence. The **service abstraction layer** enables provider flexibility (OpenAI/Claude for AI, Google Safe Browsing for reputation) while the **orchestrator pattern** ensures consistent parallel processing across deployment modes.
+
+**Key Innovation:** Dual-mode architecture supporting rapid development iteration with Next.js while maintaining production scalability through serverless transformation.
 
 ### Repository Structure
 
@@ -44,44 +57,136 @@ The Scam Checker employs a **simplified AWS serverless architecture** with Next.
 
 ### High-Level Architecture Diagram
 
+#### Current Implementation (Development Mode)
+```mermaid
+graph TB
+    User[Users] --> Next[Next.js App Router]
+    Next --> API[API Routes]
+    API --> Orchestrator[Analysis Orchestrator]
+    
+    Orchestrator --> Cache[LRU Memory Cache]
+    Orchestrator --> Services[Service Layer]
+    
+    Services --> WHOIS[WHOIS Service]
+    Services --> SSL[SSL Service]  
+    Services --> Rep[Reputation Service]
+    Services --> AI[AI Service]
+    
+    AI --> OpenAI[OpenAI API]
+    AI --> Claude[Claude API]
+    Rep --> GSB[Google Safe Browsing API]
+    
+    Cache --> Stats[Cache Stats & Warming]
+    
+    subgraph "Next.js Application"
+        Next
+        API
+        Orchestrator
+        Services
+        Cache
+    end
+    
+    subgraph "External APIs"
+        OpenAI
+        Claude
+        GSB
+    end
+```
+
+#### Production Target (AWS Serverless)
 ```mermaid
 graph TB
     User[Users] --> CF[CloudFront CDN]
     CF --> S3[S3 Static Hosting]
-    User --> API[API Gateway]
-    API --> Auth[Lambda Authorizer]
-    API --> Analyze[Analysis Lambda]
+    User --> APIGW[API Gateway]
+    APIGW --> Auth[Lambda Authorizer]
+    APIGW --> Lambda[Analysis Lambda]
     
-    Analyze --> Cache[Cache Interface<br/>NoOp → DynamoDB]
-    Analyze --> WHOIS[Node WHOIS Library]
-    Analyze --> GSB[Google Safe Browsing API]
-    Analyze --> AI[OpenAI/Claude API]
+    Lambda --> Orchestrator[Analysis Orchestrator]
+    Orchestrator --> MemCache[Lambda Memory Cache]
+    Orchestrator --> DDB[DynamoDB Cache]
+    Orchestrator --> Services[Service Layer]
     
-    API --> CW[CloudWatch Logs]
-    Analyze --> XR[X-Ray Tracing]
+    Services --> WHOIS[WHOIS Service]
+    Services --> SSL[SSL Service]
+    Services --> Rep[Reputation Service] 
+    Services --> AI[AI Service]
+    
+    AI --> OpenAI[OpenAI API]
+    AI --> Claude[Claude API]
+    Rep --> GSB[Google Safe Browsing API]
+    
+    Lambda --> CW[CloudWatch Logs]
+    Lambda --> XR[X-Ray Tracing]
     
     subgraph "AWS Infrastructure"
-        API
+        APIGW
         Auth
-        Analyze
-        Cache
+        Lambda
+        MemCache
+        DDB
     end
     
-    subgraph "External Services"
+    subgraph "External APIs"
+        OpenAI
+        Claude
         GSB
-        AI
     end
 ```
 
 ### Architectural Patterns
 
-- **Jamstack Architecture:** Static generation with serverless APIs - _Rationale:_ Optimal performance for content delivery with dynamic API analysis
-- **API Gateway Pattern:** Centralized external API orchestration - _Rationale:_ Manages rate limits, caching, and error handling for multiple external services
-- **Component-Based UI:** Reusable React components with shadcn/ui - _Rationale:_ Consistent dual-layer interface (simple + technical views)
-- **Repository Pattern:** Abstract external API access - _Rationale:_ Enables testing and easy service provider switching
-- **Factory Pattern:** Service instantiation with configuration injection - _Rationale:_ Eliminates singletons, improves testability, enables environment-specific configs
-- **Builder Pattern:** Fluent API for complex service configuration - _Rationale:_ Simplified service setup with type safety and environment defaults
-- **Cache-Aside Pattern:** In-memory result caching - _Rationale:_ Reduces external API costs and improves response times
+**Core Patterns (Implemented):**
+- **Service Abstraction Pattern:** Provider-agnostic service interfaces enabling AI provider switching (OpenAI/Claude) and reputation service flexibility - _Rationale:_ Enables A/B testing, cost optimization, and vendor risk mitigation
+- **Orchestration Pattern:** Parallel service execution with timeout handling and fallback strategies - _Rationale:_ Maximizes performance while ensuring reliability under service failures
+- **Factory Pattern:** Service instantiation with environment-specific configuration injection - _Rationale:_ Eliminates singletons, improves testability, enables seamless dev/prod transitions
+- **Builder Pattern:** Fluent API for complex service configuration with type safety - _Rationale:_ Simplifies service setup and reduces configuration errors
+- **LRU Cache Pattern:** Memory-efficient caching with intelligent eviction and cache warming - _Rationale:_ Optimizes performance while preventing memory exhaustion
+
+**UI/Frontend Patterns:**
+- **Component-Based UI:** Reusable React components with shadcn/ui design system - _Rationale:_ Consistent dual-layer interface (simple + technical views)
+- **Dual-Layer Display Pattern:** Progressive disclosure from simple risk scores to detailed technical analysis - _Rationale:_ Serves both consumer and technical audiences effectively
+
+**Integration Patterns:**
+- **API Gateway Pattern:** Centralized external API orchestration with rate limiting and error handling - _Rationale:_ Manages costs, reliability, and observability across multiple external services
+- **Cache-Aside Pattern:** Multi-tier caching (memory + future persistence) with TTL management - _Rationale:_ Reduces external API costs and improves response times
+- **Error Recovery Pattern:** Graceful degradation with partial results when services fail - _Rationale:_ Maintains user experience even during external service outages
+
+### Deployment Modes
+
+The architecture supports two distinct deployment modes, each optimized for different phases of the development lifecycle:
+
+#### Development Mode (Current)
+**Deployment Model:** Next.js full-stack application
+**Key Characteristics:**
+- **Unified Process:** Frontend and backend run in single Node.js process
+- **Hot Reloading:** Instant feedback during development with Next.js dev server
+- **Simple Dependencies:** No external infrastructure requirements beyond Node.js
+- **Direct Integration:** API routes directly call service layer without network overhead
+- **In-Memory State:** All caching and state management in application memory
+- **Local External APIs:** External API calls made directly from development machine
+
+**Advantages:** Rapid development iteration, simple debugging, no infrastructure setup required
+**Trade-offs:** Single point of failure, limited scalability, development-only configuration
+
+#### Production Mode (Planned - AWS Serverless)
+**Deployment Model:** Distributed serverless architecture
+**Key Characteristics:**
+- **Separated Concerns:** Frontend (S3/CloudFront) and backend (Lambda) independently scalable
+- **Automatic Scaling:** Lambda functions scale based on demand with zero cold-start optimization
+- **Global Distribution:** CloudFront CDN ensures worldwide performance
+- **Persistent Caching:** DynamoDB provides durable cache layer across Lambda invocations
+- **Infrastructure as Code:** Terraform manages all AWS resources with version control
+- **Monitoring Integration:** CloudWatch and X-Ray provide comprehensive observability
+
+**Advantages:** Infinite scalability, global performance, cost efficiency, operational resilience
+**Trade-offs:** Increased complexity, cold start considerations, distributed debugging challenges
+
+#### Migration Strategy
+**Shared Components:** Service layer, business logic, and data models remain identical across both modes
+**Configuration Layer:** Environment-specific builders inject appropriate dependencies (memory cache vs DynamoDB)
+**Testing Approach:** Development mode enables rapid testing; staging environment validates serverless behavior
+**Rollout Plan:** Blue-green deployment with gradual traffic shifting to validate serverless architecture
 
 ## Tech Stack
 
@@ -333,31 +438,71 @@ components:
 - `invalidate(pattern: string): Promise<void>`
 **Technology Stack:** TypeScript interface with NoOpCache pass-through implementation and future DynamoDB adapter
 
-## External APIs
+## Service Integration
 
-### Node.js WHOIS Library
+### Service Abstraction Layer
 
-- **Purpose:** Domain age analysis and registration information via direct WHOIS queries
-- **Documentation:** https://www.npmjs.com/package/whois
-- **Implementation:** Server-side Node.js library in Lambda functions
-- **Authentication:** None required (direct WHOIS protocol queries)
-- **Rate Limits:** No external API limits, only WHOIS server rate limiting
+The application implements a **provider-agnostic service architecture** enabling flexible integration with multiple external APIs through consistent interfaces:
 
-### Google Safe Browsing API
+#### WhoisService (Direct Implementation)
+- **Purpose:** Domain age analysis and WHOIS registration data
+- **Implementation:** Node.js `whois` library v2.15.0 with direct protocol queries
+- **Key Features:**
+  - Domain age calculation with registration/expiration date parsing
+  - Registrar information extraction
+  - Error handling for inaccessible or malformed WHOIS records
+  - Configurable timeout and retry logic
+- **Performance:** Direct protocol queries, no external API dependencies
+- **Caching:** 24-hour TTL for WHOIS records (minimal change frequency)
 
-- **Purpose:** URL reputation and threat detection (malware, phishing, unwanted software)
-- **Documentation:** https://developers.google.com/safe-browsing/v4/
-- **Base URL(s):** `https://safebrowsing.googleapis.com/v4/`
-- **Authentication:** API key as parameter (`key={api_key}`)
-- **Rate Limits:** 10,000 requests/day (free), higher limits available
+#### ReputationService (Configurable Provider)
+- **Purpose:** URL threat detection and reputation analysis
+- **Current Provider:** Google Safe Browsing API v4
+- **Implementation:** HTTP API integration with threat database lookup
+- **Key Features:**
+  - Multiple threat type detection (malware, phishing, unwanted software)
+  - Bulk URL checking capabilities
+  - Provider abstraction for future reputation service integration
+- **Authentication:** API key-based authentication
+- **Rate Limits:** 10,000 requests/day (free tier), scalable pricing available
+- **Caching:** 30-minute TTL for reputation checks (balance security vs performance)
 
-### OpenAI/Claude API
+#### AIService (Multi-Provider Support)
+- **Purpose:** Intelligent domain and URL pattern analysis
+- **Supported Providers:** OpenAI (GPT-4), Anthropic (Claude)
+- **Implementation:** Provider-specific adapters with unified response format
+- **Key Features:**
+  - Configurable AI provider selection via environment variables
+  - Advanced prompt management for URL risk assessment
+  - Cost tracking and budget controls
+  - Fallback strategies between providers
+- **Analysis Capabilities:**
+  - Domain name pattern recognition
+  - URL structure analysis
+  - Content risk assessment
+  - Scam indicator identification
+- **Cost Optimization:** 1-hour TTL caching, token usage monitoring
+- **Rate Limiting:** Provider-specific limits with automatic backoff
 
-- **Purpose:** Comprehensive AI analysis of domain and website characteristics
-- **Documentation:** https://platform.openai.com/docs or https://docs.anthropic.com/
-- **Base URL(s):** `https://api.openai.com/v1/` or `https://api.anthropic.com/v1/`
-- **Authentication:** Bearer token (`Authorization: Bearer {token}`)
-- **Rate Limits:** Varies by tier and model
+#### SSLService (Certificate Analysis)
+- **Purpose:** SSL/TLS certificate validation and risk assessment
+- **Implementation:** Node.js `tls` module with certificate chain analysis
+- **Key Features:**
+  - Certificate authority validation
+  - Expiration date monitoring
+  - Self-signed certificate detection
+  - Certificate chain trust verification
+- **Performance:** Direct TLS handshake, no external API dependencies
+- **Caching:** 6-hour TTL for certificate data (balance security vs performance)
+
+### Service Orchestration
+
+#### AnalysisOrchestrator
+- **Coordination:** Manages parallel execution of all service calls
+- **Timeout Management:** Individual service timeouts with overall request limits
+- **Error Recovery:** Partial result aggregation when services fail
+- **Performance Optimization:** Concurrent service execution reduces total response time
+- **Observability:** Service-level performance metrics and error tracking
 
 ## Core Workflows
 
@@ -403,15 +548,34 @@ sequenceDiagram
     Frontend->>User: Show risk score + details
 ```
 
-## Database Schema
+## Caching Architecture
 
-### Current State: No Database (Pass-through Cache)
+### Current Implementation: Sophisticated In-Memory Caching
 
-For the MVP, we're using a **NoOp cache implementation** with no persistent storage. All data is ephemeral and computed on-demand.
+The application implements a **multi-tier LRU cache system** with advanced memory management:
 
-### Future State: DynamoDB Schema
+#### CacheManager Features
+- **LRU Eviction:** Least-recently-used items automatically removed when capacity limits reached
+- **TTL Support:** Time-to-live expiration for each cache entry with automatic cleanup
+- **Memory Tracking:** Real-time monitoring of cache memory usage with configurable limits
+- **Cache Warming:** Proactive population of frequently accessed data
+- **Statistics:** Hit/miss ratios, memory usage, and performance metrics
+- **Prefix Namespacing:** Multiple cache instances with isolated key spaces
 
-When caching becomes necessary based on cost/performance metrics, here's the DynamoDB schema:
+#### Cache Configuration
+- **Service-Specific Caches:** Separate cache instances for WHOIS, SSL, reputation, and AI analysis
+- **Configurable TTLs:** WHOIS (24 hours), SSL (6 hours), AI analysis (1 hour), reputation (30 minutes)
+- **Memory Limits:** Default 50MB per cache instance with 80% eviction threshold
+- **Development Mode:** All caches in-memory with process lifecycle
+
+#### Performance Characteristics
+- **Cache Hit Performance:** Sub-millisecond retrieval for cached results
+- **Memory Efficiency:** Automatic eviction prevents memory exhaustion
+- **Graceful Degradation:** Cache misses fall back to external API calls
+
+### Future Enhancement: DynamoDB Persistence Layer
+
+When deployed to AWS Lambda, caching will extend to include persistent storage:
 
 #### Table: `scam-checker-cache`
 
@@ -769,6 +933,12 @@ tests/
 - Auth: optionally generate and reuse a `storageState` in global setup.
 - Data: seed through API/DB helpers; tests must not depend on order. Clean up in live tests.
 - Stability: eliminate randomness/time in stubbed flows using deterministic seeds and frozen clocks where applicable.
+
+### Playwright MCP Lifecycle & Cleanup (mandatory)
+- Ownership: Any task that opens a Playwright MCP browser session must also close it before completing the task.
+- Close order: Close pages and contexts, then end the session via the MCP server’s provided close/shutdown action.
+- Required action: After finishing, invoke the MCP actions to close all created pages/contexts and terminate the MCP session. Do not leave sessions running between tasks.
+- Failure handling: If a task errors or is interrupted, perform an MCP cleanup step before exiting to ensure no sessions remain running.
 ## Deployment Architecture
 
 ### Deployment Strategy
@@ -947,6 +1117,38 @@ Always use shadcn/ui components before creating custom implementations.
 
 ### Implementation Process
 Use `npx shadcn@latest add <component>` to add required components, implement, add tests, and document usage. Custom components must include a justification file and follow shadcn styling patterns.
+
+### Hydration Safety Checklist
+
+Before implementing any component with dynamic content, ensure SSR/CSR compatibility:
+
+**Required Checks:**
+- [ ] No Date/Time values in initial state (use static initial values)
+- [ ] No Math.random() or crypto.getRandomValues() in initial render
+- [ ] Client-only operations wrapped in useEffect with isClient guard
+- [ ] Form state properly initialized with consistent values
+- [ ] Debug information is hydration-safe (no dynamic timestamps)
+- [ ] Tested with multiple page reloads to verify event handlers remain bound
+
+**Safe Pattern Example:**
+```typescript
+// Client detection pattern for browser-only operations
+const [isClient, setIsClient] = useState(false)
+useEffect(() => {
+  setIsClient(true)
+}, [])
+
+// Use for any client-specific rendering
+if (isClient) {
+  // Browser-only code here
+}
+```
+
+**Common Hydration Pitfalls:**
+- Using `window`, `document`, or `localStorage` during initial render
+- Generating different IDs/keys on server vs client
+- Conditional rendering based on user-agent or browser detection
+- Dynamic timestamps or random values in initial state
 
 See detailed guidance in `docs/architecture/frontend-component-guidelines.md`.
 
