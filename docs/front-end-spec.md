@@ -9,6 +9,7 @@ This document defines the user experience goals, information architecture, user 
 | 2025-08-29 | 1.0 | Initial specification creation with shadcn/ui integration | Sally (UX Expert) |
 | 2025-08-30 | 1.1 | Added mandatory reference to Frontend Component Implementation Guidelines | James (Senior Developer) |
 | 2025-09-02 | 1.2 | Unified view redesign - consolidated Simple and Technical views with progressive disclosure | Sally (UX Expert) |
+| 2025-09-03 | 1.3 | Updated to reflect Story 3-19 implementation: integrated URL display into RecommendationAlert, enhanced accordion triggers with finding descriptions, removed standalone Key Findings component | Sally (UX Expert) |
 
 ## Overall UX Goals & Principles
 
@@ -278,15 +279,19 @@ graph TD
 
 ### URL Link Behavior Specification
 
-#### Interactive URL Link Component
+#### Integrated URL Display (within RecommendationAlert)
 
-**Purpose:** Provide direct access to the analyzed URL with appropriate safety warnings
+**Purpose:** Provide direct access to the analyzed URL with appropriate safety warnings as part of the security recommendation
+
+**Integration Approach:** URL link functionality has been integrated into the RecommendationAlert component for better UX cohesion. Users now access URLs directly from within the security recommendation alert, creating a single point of interaction for both assessment and action.
 
 **Visual Design:**
-- **Icon**: 🔗 link icon prefix
-- **Desktop**: Full URL displayed (e.g., "https://wikipedia.org/wiki/Example")
-- **Tablet**: Truncated with middle ellipsis (e.g., "https://wikipedia.org...Example")
-- **Mobile**: Domain or heavily truncated (e.g., "https://...")
+- **Icon**: 🔗 link icon prefix within alert body
+- **Responsive Display**: 
+  - **Mobile**: Domain with truncated path (e.g., "example.com/path...")
+  - **Tablet**: Truncated URL with CSS ellipsis
+  - **Desktop**: Full URL display
+- **Touch Enhancement**: Larger touch targets for mobile accessibility
 
 **Interaction Behavior:**
 
@@ -328,6 +333,8 @@ graph TD
 - "Continue at Own Risk" button styled as destructive variant
 - Opens URL in new tab if user confirms
 - Tracks warning dialog interactions for analytics
+
+**Note:** For detailed warning dialog specifications, see the "RecommendationAlert with Integrated URL Display" section above, which contains the complete implementation details including dialog variants, animations, and accessibility features.
 
 ### Component Visual Specifications
 
@@ -692,6 +699,38 @@ Headers:
 
 **shadcn Implementation:** Enhanced input component with real-time validation styling and integrated loading state
 
+#### RecommendationAlert with Integrated URL Display
+**Purpose:** Display security recommendations with embedded URL access functionality
+
+**Component Structure:**
+- **Alert Component**: shadcn alert with variant based on risk level (default for safe/moderate, destructive for caution/danger)
+- **URL Display**: Responsive URL display within alert body with Link icon prefix
+- **Warning Integration**: Dialog-based warning system for URLs with score < 60
+
+**Responsive URL Display Behavior:**
+- **Mobile (≤639px)**: Domain with truncated path display for better UX (e.g., "example.com/path...")
+- **Tablet (640-1023px)**: Truncated URL with CSS ellipsis (`max-w-[50ch] truncate`)
+- **Desktop (≥1024px)**: Full URL display without truncation
+
+**Touch Target Enhancement:**
+- **WCAG Compliance**: Minimum 44px touch target height on mobile (`min-h-[44px] sm:min-h-[32px]`)
+- **Enhanced Padding**: Larger touch area with padding (`py-2 px-1 -mx-1`) for better mobile interaction
+- **Focus Management**: Proper focus rings and keyboard navigation support
+
+**Warning Dialog Specification:**
+- **Trigger Condition**: URLs with safety score < 60
+- **Dialog Variants**: 
+  - Caution (40-59): Yellow warning with moderate language and AlertTriangle icon
+  - High Risk (20-39): Orange/red warning with stronger language and ShieldAlert icon
+  - Danger (0-19): Critical red warning with strongest language and Skull icon
+- **Dialog Features**: Animated entry, prominent danger icons with pulse animation, URL display in monospace font
+
+**States:** Default (safe/moderate direct navigation), Warning dialog (caution/high risk/danger), Loading, Error
+
+**Usage Guidelines:** Single cohesive component combining security assessment and URL access, maintains existing warning functionality while improving UX cohesion
+
+**shadcn Implementation:** Alert component with integrated Button (styled as link), Dialog component for warnings, enhanced with custom responsive display logic and touch-friendly interactions
+
 #### Analysis Results Panel
 **Purpose:** Display comprehensive safety analysis with progressive disclosure in a unified interface
 
@@ -706,14 +745,13 @@ Headers:
 2. **URL Security Report** (H3): Section identifier with `text-2xl font-semibold`
 3. **Domain Header** (H2): Extracted domain name with `text-3xl font-semibold`
 4. **Risk Gauge**: Visual circular progress with score and status
-5. **Recommendation Alert**: Dynamic alert based on risk level
-6. **URL Link**: Clickable link with appropriate safety warnings
-7. **Technical Analysis Section** (H3): Container for expandable technical details
-   - **Key Findings**: Subdued summary component (moved inside Technical Analysis)
-   - **Domain Information**: Expandable accordion section
-   - **SSL Certificate**: Expandable accordion section
-   - **Reputation Analysis**: Expandable accordion section
-   - **AI Content Analysis**: Expandable accordion section
+5. **Recommendation Alert with Integrated URL Display**: Dynamic alert based on risk level with embedded URL link functionality
+6. **Technical Analysis Section** (H3): Container for expandable technical details with integrated findings
+   - **Domain Information**: Expandable accordion section with key finding description in trigger
+   - **SSL Certificate**: Expandable accordion section with key finding description in trigger
+   - **Reputation Analysis**: Expandable accordion section with key finding description in trigger
+   - **AI Content Analysis**: Expandable accordion section with key finding description in trigger
+   - **Raw Analysis Data**: Standard accordion without finding integration
 
 **Variants:**
 - **Desktop**: Full domain header, complete URL display, spacious layout
@@ -723,17 +761,24 @@ Headers:
 
 **Usage Guidelines:** Domain and gauge always visible first, recommendation alert provides clear guidance, URL link includes safety warnings for risky sites
 
-**shadcn Implementation:** Combination of typography (H1 for Analysis Results, H3 for URL Security Report, H2 for domain), custom risk gauge, alert component for recommendations, button/link for URL, and accordion components for technical details
+**shadcn Implementation:** Combination of typography (H1 for Analysis Results, H3 for URL Security Report, H2 for domain), custom risk gauge, alert component for recommendations with integrated URL display, and enhanced accordion components for technical details with integrated finding descriptions
 
-**Key Findings Component Redesign:**
-- **Visual Positioning**: Moved inside Technical Analysis section as first expandable item
-- **Border Styling**: Replace prominent colored borders with subtle `border-gray-200 dark:border-gray-700`
-- **Vertical Spacing**: Reduce padding from `p-3` to `p-2` for more compact appearance  
-- **Typography**: 
-  - Finding titles: Downgrade from `text-sm font-medium` to `text-xs font-normal`
-  - Badge text: Maintain readability while reducing visual weight
-- **Background**: Use more subdued background colors with lower opacity (50% → 25%)
-- **Purpose**: Provide quick summary without overwhelming the main analysis flow
+**Enhanced Accordion Triggers with Integrated Findings:**
+- **Visual Structure**: Multi-line accordion triggers with section title and key finding description
+- **Typography**: Section title with normal font weight, finding description with `font-light text-muted-foreground`
+- **Content Display**: Most significant finding for each section displayed as supplementary text below section title
+- **Finding Categorization**: Automatic categorization of findings by technical section type (domain, ssl, reputation, ai)
+- **Progressive Disclosure**: Key insights visible without expanding accordions, reducing cognitive load
+- **Finding Selection Logic**: Priority system selecting highest severity findings per section (high negative > medium negative > positive > low/neutral)
+- **Character Truncation**: Finding descriptions truncated to 50 characters with ellipsis for consistent display
+
+**Key Findings Integration Pattern:**
+- **Visual Integration**: Key finding descriptions displayed directly in accordion triggers, eliminating standalone section
+- **No Separate Component**: Key findings no longer exist as independent accordion item or component
+- **Categorization Logic**: Findings automatically categorized by section type (domain, ssl, reputation, ai) using content analysis
+- **Priority Display**: Most significant finding per section shown in trigger using severity-based sorting
+- **Typography**: Light font weight (`font-light text-muted-foreground`) for descriptions to maintain visual hierarchy
+- **Purpose**: Provide immediate insights through progressive disclosure without dedicated UI space
 
 **Technical Analysis Section Restructuring:**
 - **Section Header**: Use H3 styling (`text-2xl font-semibold`) with Technical Analysis icon

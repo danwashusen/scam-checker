@@ -143,15 +143,27 @@ export function UrlInputForm({
     isSubmitting: false,
   })
 
-  // Sync form state on mount to eliminate race conditions
+  // Client-side detection state
+  const [isClient, setIsClient] = React.useState(false)
+  
+  // Detect client-side rendering to avoid hydration mismatch
   React.useEffect(() => {
-    const currentUrl = form.getValues('url')
-    setFormState(prev => ({
-      ...prev,
-      url: currentUrl,
-      normalizedUrl: currentUrl.startsWith('http') ? currentUrl : `https://${currentUrl}`,
-    }))
-  }, [form])
+    setIsClient(true)
+  }, [])
+
+  // Sync form state on mount to eliminate race conditions - stabilized dependencies
+  React.useEffect(() => {
+    if (isClient) {
+      const currentUrl = form.getValues('url') || initialValue
+      const normalized = currentUrl && !currentUrl.startsWith('http') ? `https://${currentUrl}` : currentUrl
+      
+      setFormState(prev => ({
+        ...prev,
+        url: currentUrl,
+        normalizedUrl: normalized,
+      }))
+    }
+  }, [form, initialValue, isClient]) // Added stable dependencies
 
   // Enhanced debounced validation with 300ms timing
   React.useEffect(() => {
@@ -222,16 +234,16 @@ export function UrlInputForm({
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [form, handleSubmit, isButtonEnabled])
 
-  // Debug utilities (development only) - Fixed hydration issue
+  // Debug utilities (development only) - Hydration-safe implementation
   const isDebugMode = process.env.NODE_ENV === 'development'
-  const [debugTimestamp, setDebugTimestamp] = React.useState<string>('--')
+  const [debugTimestamp, setDebugTimestamp] = React.useState<string>('Never')
   
-  // Update timestamp only on client-side to avoid hydration mismatch
+  // Update timestamp only after client-side hydration
   React.useEffect(() => {
-    if (isDebugMode) {
-      setDebugTimestamp(new Date().toISOString())
+    if (isDebugMode && isClient && formState.validationTimestamp) {
+      setDebugTimestamp(new Date(formState.validationTimestamp).toLocaleTimeString())
     }
-  }, [formState.validationTimestamp, isDebugMode])
+  }, [formState.validationTimestamp, isDebugMode, isClient])
   
   const debugInfo = React.useMemo(() => ({
     formState: formState,
