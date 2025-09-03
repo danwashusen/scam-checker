@@ -105,6 +105,9 @@ export function RiskGauge({
       aria-describedby={`gauge-description-${status}`}
       className={cn(
         "relative flex items-center justify-center",
+        // Visual improvement: subtle background and border for better visual separation
+        "bg-card/50 border border-border/50 rounded-lg p-4",
+        "backdrop-blur-sm",
         className
       )}
     >

@@ -1,15 +1,17 @@
 "use client"
 
-import React, { useState, useCallback, useEffect, useRef } from "react"
-import { Card, CardContent } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import React, { useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ErrorBoundary } from "@/components/ui/error-boundary"
-import { SimpleView } from "./simple-view"
 import { TechnicalDetails } from "./technical-details"
 import { ShareExport } from "./share-export"
+import { DomainHeader } from "./domain-header"
+import { URLLink } from "./url-link"
+import { RecommendationAlert } from "./recommendation-alert"
+import { RiskGauge } from "./risk-gauge"
+import { KeyFindings } from "./key-findings"
 import { AnalysisResult, ShareMethod, ExportFormat } from "@/types/analysis-display"
 import { AlertTriangle, RotateCcw } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -48,54 +50,40 @@ const ResultsLoadingSkeleton = () => (
       <Skeleton className="h-9 w-24" />
     </div>
 
-    {/* Tabs skeleton */}
-    <div className="space-y-4">
-      <div className="flex space-x-1">
-        <Skeleton className="h-9 w-24" />
-        <Skeleton className="h-9 w-24" />
+    {/* Content skeleton */}
+    <div className="space-y-6">
+      {/* Domain header skeleton */}
+      <Skeleton className="h-8 w-64" />
+      
+      {/* Risk gauge skeleton */}
+      <div className="flex items-center justify-center">
+        <Skeleton className="h-48 w-48 rounded-full" />
       </div>
       
-      {/* Content skeleton */}
-      <Card>
-        <CardContent className="p-6">
-          <div className="flex items-center justify-center mb-6">
-            <Skeleton className="h-48 w-48 rounded-full" />
-          </div>
-          <div className="space-y-4">
-            <Skeleton className="h-4 w-full" />
-            <Skeleton className="h-4 w-3/4" />
-            <Skeleton className="h-4 w-1/2" />
-          </div>
-        </CardContent>
-      </Card>
+      {/* Recommendation alert skeleton */}
+      <Skeleton className="h-16 w-full" />
+      
+      {/* URL link skeleton */}
+      <Skeleton className="h-6 w-full" />
+      
+      {/* Key findings skeleton */}
+      <div className="space-y-2">
+        <Skeleton className="h-4 w-32" />
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-3/4" />
+        <Skeleton className="h-4 w-1/2" />
+      </div>
+      
+      {/* Technical details accordion skeleton */}
+      <div className="space-y-2">
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-10 w-full" />
+      </div>
     </div>
   </div>
 )
 
-// Custom hook for view toggle with scroll position preservation
-const useViewToggle = (defaultView: 'simple' | 'technical' = 'simple') => {
-  const [view, setView] = useState(defaultView)
-  const [scrollPositions, setScrollPositions] = useState<Record<string, number>>({})
-
-  const toggleView = useCallback((newView: typeof view) => {
-    // Save current scroll position
-    setScrollPositions(prev => ({
-      ...prev,
-      [view]: window.scrollY
-    }))
-
-    setView(newView)
-
-    // Restore previous scroll position after a brief delay
-    setTimeout(() => {
-      if (scrollPositions[newView] !== undefined) {
-        window.scrollTo(0, scrollPositions[newView])
-      }
-    }, 100)
-  }, [view, scrollPositions])
-
-  return { view, toggleView, setView }
-}
 
 export function ResultsDisplay({
   result,
@@ -107,7 +95,6 @@ export function ResultsDisplay({
   onAnalyzeNew,
   className
 }: ResultsDisplayProps) {
-  const { view, toggleView } = useViewToggle('simple')
   const resultsRef = useRef<HTMLDivElement>(null)
 
   // Auto-scroll to results section when loading starts
@@ -201,28 +188,19 @@ export function ResultsDisplay({
           </div>
         </div>
 
-        {/* Main content with tabs */}
-        <Tabs 
-          value={view} 
-          onValueChange={(value) => toggleView(value as 'simple' | 'technical')}
-          className="w-full"
-        >
-          <TabsList className="grid w-full grid-cols-2 max-w-md">
-            <TabsTrigger value="simple">Simple View</TabsTrigger>
-            <TabsTrigger value="technical">Technical View</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="simple" className="space-y-6 mt-6">
-            <SimpleView 
-              result={result}
-              onViewDetails={() => toggleView('technical')}
-            />
-          </TabsContent>
-
-          <TabsContent value="technical" className="space-y-6 mt-6">
-            <TechnicalDetails result={result} />
-          </TabsContent>
-        </Tabs>
+        {/* Unified content structure */}
+        <div className="space-y-4">
+          <DomainHeader url={result.url} />
+          <RiskGauge score={result.score} status={result.status} />
+          <RecommendationAlert score={result.score} status={result.status} />
+          <URLLink url={result.url} score={result.score} />
+          <KeyFindings 
+            findings={result.findings.filter(finding => finding.severity !== 'low').slice(0, 5)}
+            maxItems={5}
+            expandable={false}
+          />
+          <TechnicalDetails result={result} />
+        </div>
       </div>
     </ErrorBoundary>
   )

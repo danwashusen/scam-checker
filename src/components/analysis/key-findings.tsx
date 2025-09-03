@@ -15,7 +15,9 @@ import {
   Lock,
   Eye,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  AlertOctagon,
+  ShieldCheck
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useState } from "react"
@@ -28,7 +30,7 @@ export interface KeyFindingsProps {
 }
 
 // Icon mapping for different finding types
-const findingIcons: Record<string, React.ComponentType<any>> = {
+const findingIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   ssl: Lock,
   domain: Globe,
   reputation: Shield,
@@ -56,37 +58,39 @@ const getIconForFinding = (finding: Finding) => {
   return Info
 }
 
-// Style configuration for different finding types and severities
-const getTypeStyles = (type: Finding['type'], _severity: Finding['severity']) => {
+// Enhanced style configuration for better visual differentiation (Visual Improvement)
+const getTypeStyles = (type: Finding['type'], severity: Finding['severity']) => {
   const baseStyles = {
     positive: {
-      icon: "text-green-600 dark:text-green-400",
-      bg: "bg-green-50 dark:bg-green-950/20",
-      border: "border-green-200 dark:border-green-800",
-      badge: "bg-green-100 text-green-800 dark:bg-green-950/40 dark:text-green-300"
+      icon: "text-emerald-600 dark:text-emerald-400",
+      bg: "bg-emerald-50 dark:bg-emerald-950/20",
+      border: "border-emerald-200 dark:border-emerald-800",
+      badge: "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800"
     },
     negative: {
-      icon: "text-red-600 dark:text-red-400", 
-      bg: "bg-red-50 dark:bg-red-950/20",
-      border: "border-red-200 dark:border-red-800",
-      badge: "bg-red-100 text-red-800 dark:bg-red-950/40 dark:text-red-300"
+      icon: severity === 'high' ? "text-red-700 dark:text-red-300" : "text-orange-600 dark:text-orange-400", 
+      bg: severity === 'high' ? "bg-red-50 dark:bg-red-950/20" : "bg-orange-50 dark:bg-orange-950/20",
+      border: severity === 'high' ? "border-red-200 dark:border-red-800" : "border-orange-200 dark:border-orange-800",
+      badge: severity === 'high' ? "bg-red-100 text-red-800 border-red-200 dark:bg-red-950/40 dark:text-red-300 dark:border-red-800" : "bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-950/40 dark:text-orange-300 dark:border-orange-800"
     },
     neutral: {
       icon: "text-blue-600 dark:text-blue-400",
       bg: "bg-blue-50 dark:bg-blue-950/20", 
       border: "border-blue-200 dark:border-blue-800",
-      badge: "bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300"
+      badge: "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800"
     }
   }
   
   return baseStyles[type] || baseStyles.neutral
 }
 
+// Enhanced severity icons with more distinct visual differentiation (Visual Improvement)
 const getSeverityIcon = (type: Finding['type'], severity: Finding['severity']) => {
-  if (type === 'positive') return CheckCircle2
+  if (type === 'positive') return ShieldCheck // More distinct positive icon
   if (type === 'negative') {
-    if (severity === 'high') return XCircle
-    return AlertTriangle
+    if (severity === 'high') return AlertOctagon // More prominent danger icon
+    if (severity === 'medium') return AlertTriangle
+    return XCircle // Low severity negative
   }
   return Info
 }
@@ -158,8 +162,11 @@ export function KeyFindings({
                         </h4>
                         <Badge 
                           variant="outline" 
-                          className={cn("text-xs px-1.5 py-0.5", styles.badge)}
+                          className={cn("text-xs px-1.5 py-0.5 flex items-center gap-1", styles.badge)}
                         >
+                          {finding.type === 'negative' && finding.severity === 'high' && <AlertOctagon className="h-2.5 w-2.5" />}
+                          {finding.type === 'negative' && finding.severity === 'medium' && <AlertTriangle className="h-2.5 w-2.5" />}
+                          {finding.type === 'positive' && <CheckCircle2 className="h-2.5 w-2.5" />}
                           {finding.severity}
                         </Badge>
                       </div>
@@ -169,13 +176,15 @@ export function KeyFindings({
                       </p>
                     </div>
                     
-                    {/* Expand/Collapse button */}
+                    {/* Expand/Collapse button with enhanced accessibility */}
                     {expandable && hasDetails && (
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => toggleExpanded(finding.id)}
-                        className="flex-shrink-0 h-6 w-6 p-0"
+                        className="flex-shrink-0 h-6 w-6 p-0 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+                        aria-label={isExpanded ? `Collapse ${finding.title} details` : `Expand ${finding.title} details`}
+                        aria-expanded={isExpanded}
                       >
                         {isExpanded ? (
                           <ChevronDown className="h-3 w-3" />
@@ -189,7 +198,12 @@ export function KeyFindings({
                     {!expandable && hasDetails && (
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-6 w-6 p-0 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+                            aria-label={`Additional details for ${finding.title}`}
+                          >
                             <Info className="h-3 w-3" />
                           </Button>
                         </TooltipTrigger>
@@ -215,14 +229,18 @@ export function KeyFindings({
         })}
       </TooltipProvider>
       
-      {/* Show More/Less button */}
+      {/* Show More/Less button with enhanced accessibility */}
       {hasMore && expandable && (
         <div className="text-center pt-2">
           <Button
             variant="outline"
             size="sm"
             onClick={() => setShowAll(!showAll)}
-            className="text-sm"
+            className="text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+            aria-label={showAll 
+              ? "Show fewer findings" 
+              : `Show ${findings.length - maxItems} more finding${findings.length - maxItems > 1 ? 's' : ''}`}
+            aria-expanded={showAll}
           >
             {showAll ? (
               <>

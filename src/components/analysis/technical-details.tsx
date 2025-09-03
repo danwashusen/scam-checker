@@ -48,7 +48,8 @@ const CopyButton = ({ text }: { text: string }) => {
       variant="outline" 
       size="sm" 
       onClick={copyToClipboard}
-      className="h-6 px-2 text-xs"
+      className="h-6 px-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+      aria-label={copied ? "Text copied to clipboard" : "Copy text to clipboard"}
     >
       <Copy className="h-3 w-3 mr-1" />
       {copied ? 'Copied!' : 'Copy'}
@@ -137,7 +138,15 @@ export function TechnicalDetails({
               <div className="flex items-center gap-2">
                 <Globe className="h-4 w-4" />
                 Domain Information
-                <Badge variant="outline" className="ml-2">
+                <Badge 
+                  variant={technicalData.domainAge.ageInDays > 365 ? 'default' : 'outline'} 
+                  className={cn(
+                    "ml-2",
+                    technicalData.domainAge.ageInDays > 365 
+                      ? "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800"
+                      : "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800"
+                  )}
+                >
                   {technicalData.domainAge.ageInDays > 365 ? 'Established' : 'New'}
                 </Badge>
               </div>
@@ -186,9 +195,19 @@ export function TechnicalDetails({
                 <Lock className="h-4 w-4" />
                 SSL Certificate
                 {technicalData.ssl.isValid ? (
-                  <Badge variant="default" className="ml-2">Valid</Badge>
+                  <Badge variant="default" className={cn(
+                    "ml-2 bg-emerald-100 text-emerald-800 border-emerald-200",
+                    "dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800"
+                  )}>
+                    Valid
+                  </Badge>
                 ) : (
-                  <Badge variant="destructive" className="ml-2">Invalid</Badge>
+                  <Badge variant="destructive" className={cn(
+                    "ml-2 bg-red-100 text-red-800 border-red-200",
+                    "dark:bg-red-950/40 dark:text-red-300 dark:border-red-800"
+                  )}>
+                    Invalid
+                  </Badge>
                 )}
               </div>
             </AccordionTrigger>
@@ -256,7 +275,12 @@ export function TechnicalDetails({
                   variant={technicalData.reputation.overallRating === 'safe' ? 'default' : 
                           technicalData.reputation.overallRating === 'suspicious' ? 'outline' : 
                           technicalData.reputation.overallRating === 'malicious' ? 'destructive' : 'secondary'}
-                  className="ml-2"
+                  className={cn(
+                    "ml-2",
+                    technicalData.reputation.overallRating === 'safe' && "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800",
+                    technicalData.reputation.overallRating === 'suspicious' && "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800",
+                    technicalData.reputation.overallRating === 'malicious' && "bg-red-100 text-red-800 border-red-200 dark:bg-red-950/40 dark:text-red-300 dark:border-red-800"
+                  )}
                 >
                   {technicalData.reputation.overallRating}
                 </Badge>
@@ -298,7 +322,17 @@ export function TechnicalDetails({
               <div className="flex items-center gap-2">
                 <Brain className="h-4 w-4" />
                 AI Content Analysis
-                <Badge variant="outline" className="ml-2">
+                <Badge 
+                  variant="outline" 
+                  className={cn(
+                    "ml-2",
+                    technicalData.ai.confidence >= 0.8 
+                      ? "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800"
+                      : technicalData.ai.confidence >= 0.6
+                      ? "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800" 
+                      : "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800"
+                  )}
+                >
                   {Math.round(technicalData.ai.confidence * 100)}% confidence
                 </Badge>
               </div>
@@ -325,7 +359,14 @@ export function TechnicalDetails({
                         <div key={index} className="p-2 bg-muted rounded">
                           <div className="flex items-center justify-between mb-1">
                             <span className="text-sm font-medium">{pattern.type}</span>
-                            <Badge variant={pattern.severity === 'high' ? 'destructive' : pattern.severity === 'medium' ? 'outline' : 'secondary'}>
+                            <Badge 
+                              variant={pattern.severity === 'high' ? 'destructive' : pattern.severity === 'medium' ? 'outline' : 'secondary'}
+                              className={cn(
+                                pattern.severity === 'high' && "bg-red-100 text-red-800 border-red-200 dark:bg-red-950/40 dark:text-red-300 dark:border-red-800",
+                                pattern.severity === 'medium' && "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800",
+                                pattern.severity === 'low' && "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800"
+                              )}
+                            >
                               {pattern.severity}
                             </Badge>
                           </div>
