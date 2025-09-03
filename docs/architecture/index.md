@@ -55,7 +55,7 @@
   - [Unified Project Structure](./unified-project-structure.md)
   - [Development Workflow](./development-workflow.md)
     - [For Humans (Operator Flow)](./development-workflow.md#for-humans-operator-flow)
-    - [For Agents (Execution Protocols)](./development-workflow.md#for-agents-execution-protocols)
+    - [Agent Protocols During Task Execution](./development-workflow.md#agent-protocols-during-task-execution)
     - [Local Setup](./development-workflow.md#local-setup)
     - [Story State Transitions](./development-workflow.md#story-state-transitions)
     - [Validations and Tests](./development-workflow.md#validations-and-tests)

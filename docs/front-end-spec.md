@@ -8,6 +8,7 @@ This document defines the user experience goals, information architecture, user 
 |------|---------|-------------|---------|
 | 2025-08-29 | 1.0 | Initial specification creation with shadcn/ui integration | Sally (UX Expert) |
 | 2025-08-30 | 1.1 | Added mandatory reference to Frontend Component Implementation Guidelines | James (Senior Developer) |
+| 2025-09-02 | 1.2 | Unified view redesign - consolidated Simple and Technical views with progressive disclosure | Sally (UX Expert) |
 
 ## Overall UX Goals & Principles
 
@@ -47,14 +48,16 @@ This document defines the user experience goals, information architecture, user 
 
 ```mermaid
 graph TD
-    A[Homepage / URL Input] --> B[Analysis Results]
+    A[Homepage / URL Input] --> B[Unified Analysis Results]
     A --> C[API Documentation]
-    B --> B1[Simple View - General Users]
-    B --> B2[Technical Details - Advanced Users]
-    B1 --> D[Risk Score Display]
-    B1 --> E[Safety Recommendations]
-    B2 --> F[Technical Analysis Data]
-    B2 --> G[API Response Preview]
+    B --> D[Risk Gauge & Score Display]
+    B --> E[Key Findings Section]
+    B --> F[Expandable Technical Details]
+    F --> F1[Domain Information]
+    F --> F2[SSL Certificate Analysis]
+    F --> F3[Reputation Analysis]
+    F --> F4[AI Content Analysis]
+    F --> F5[Raw Analysis Data]
     C --> C1[Quick Start Guide]
     C --> C2[Authentication Setup]
     C --> C3[Code Examples]
@@ -63,7 +66,7 @@ graph TD
 
 **Key Screens:**
 - **Homepage**: Clean URL input with instant validation, powered by shadcn input components
-- **Analysis Results**: Dual-view layout using shadcn tabs component for simple/technical toggle
+- **Analysis Results**: Unified view with risk gauge, key findings, and progressive disclosure via shadcn accordion
 - **API Documentation**: Developer-focused with shadcn code-block and copy-button components
 
 ### Navigation Structure
@@ -73,9 +76,9 @@ graph TD
 - API (Code icon) - Developer documentation  
 - About (Info icon) - How it works explanation
 
-**Secondary Navigation:** Context-dependent tabs within results view
-- Simple tab (default) - Color-coded safety display
-- Technical tab - Expandable detailed breakdown
+**Secondary Navigation:** Progressive disclosure within results view
+- Accordion sections for technical details (expandable on demand)
+- Action buttons for additional functions (share, analyze new URL)
 
 **Breadcrumb Strategy:** Minimal breadcrumbs only on API documentation pages due to simple 2-level hierarchy
 
@@ -104,13 +107,15 @@ graph TD
     D -->|Valid| F[Show loading state with spinner]
     F --> G[shadcn spinner component active]
     G --> H[Multi-factor analysis completes]
-    H --> I[Display risk score with color coding]
-    I --> J{User type preference}
-    J -->|General User| K[Simple view: Status badge + recommendation]
-    J -->|Tech User| L[Technical view: Detailed breakdown]
-    K --> M[Action buttons: Share result, Analyze another]
-    L --> N[Expandable sections: Domain, SSL, Content analysis]
-    N --> M
+    H --> I[Display unified results view]
+    I --> J[Risk gauge with animated score reveal]
+    J --> K[Status badge and safety message]
+    K --> L[Key findings summary displayed]
+    L --> M{User wants more detail?}
+    M -->|Yes| N[Expand technical accordion sections]
+    M -->|No| O[Action buttons: Share result, Analyze another]
+    N --> P[View domain info, SSL, reputation, AI analysis]
+    P --> O
 ```
 
 #### Edge Cases & Error Handling:
@@ -120,7 +125,7 @@ graph TD
 - Malicious URL detected: Prominent warning with shadcn banner component
 - Analysis inconclusive: Clear messaging about limitations and manual review suggestion
 
-**Notes:** Uses shadcn status, spinner, and banner components for consistent visual feedback throughout the flow
+**Notes:** Uses shadcn status, spinner, banner, and accordion components for consistent visual feedback and progressive disclosure throughout the flow
 
 ### Secondary Flow: API Integration for Developers
 
@@ -184,34 +189,42 @@ graph TD
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### Results View (Desktop) - Dual Panel
+### Results View (Desktop) - Unified View
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │ Navigation Bar (same as homepage)                                │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                   │
-│  ┌──────────────────────────┐ ┌──────────────────────────┐     │
-│  │ [Simple View] │ Technical │ │ Copy Link │ Check Another │     │ <- Tabs + Actions
-│  └──────────────────────────┘ └──────────────────────────┘     │
-│                                                                   │
 │  ┌─────────────────────────────────────────────────────────┐   │
 │  │                                                           │   │
+│  │  wikipedia.org                                            │   │ <- H2 Domain
+│  │                                                           │   │
 │  │            ╭────────────────────────╮                    │   │
-│  │            │         85/100         │                    │   │ <- Large score
-│  │            │    ████████████░░░     │                    │   │ <- Visual gauge
-│  │            │       SAFE TO VISIT    │                    │   │ <- Status badge
+│  │            │         94/100         │                    │   │ <- Risk gauge
+│  │            │    ████████████████    │                    │   │ <- Visual progress
+│  │            │       SAFE TO VISIT    │                    │   │ <- Status message
 │  │            ╰────────────────────────╯                    │   │
 │  │                                                           │   │
-│  │  ✓ Valid SSL Certificate (Let's Encrypt)                 │   │
-│  │  ✓ Domain Age: 5 years                                   │   │ <- Key findings
-│  │  ✓ No known security issues                              │   │
-│  │  ⚠ Limited reputation data                               │   │
-│  │                                                           │   │
 │  │  ┌───────────────────────────────────────────────┐      │   │
-│  │  │ This website appears safe to visit. Standard   │      │   │
-│  │  │ security precautions are still recommended.    │      │   │ <- Recommendation
+│  │  │ ℹ Recommendation: Standard security checks     │      │   │
+│  │  │   passed. Always verify before sharing info.   │      │   │ <- Recommendation
 │  │  └───────────────────────────────────────────────┘      │   │
+│  │                                                           │   │
+│  │  🔗 https://wikipedia.org                                │   │ <- Clickable URL
+│  │                                                           │   │
+│  │  ✓ Clean reputation according to Google Safe Browsing    │   │
+│  │  ✓ Established domain (24 years old)                     │   │ <- Key findings
+│  │  ✓ Valid SSL certificate                                 │   │
+│  │  ✓ AI analysis: legitimate category (score: 50)          │   │
+│  │                                                           │   │
+│  │  ▼ Domain Information (Established)                      │   │
+│  │  ▼ SSL Certificate (Valid)                               │   │ <- Expandable
+│  │  ▼ Reputation Analysis (Safe)                            │   │ <- Technical
+│  │  ▼ AI Content Analysis (85% confidence)                 │   │ <- Sections
+│  │  ▼ Raw Analysis Data (JSON)                              │   │
+│  │                                                           │   │
+│  │  [Copy Link] [Share & Export] [Check Another URL]       │   │ <- Actions
 │  │                                                           │   │
 │  └─────────────────────────────────────────────────────────┘   │
 │                                                                   │
@@ -238,18 +251,83 @@ graph TD
 │                 │
 ├─────────────────┤
 │     Results:    │
+│                 │
+│ wikipedia.org   │ <- Domain
+│                 │
 │   ┌────────┐    │
-│   │   85   │    │ <- Compact score
+│   │   94   │    │ <- Compact gauge
 │   │  SAFE  │    │
 │   └────────┘    │
 │                 │
-│ ✓ SSL Valid     │
-│ ✓ 5 year domain │ <- Stacked list
-│ ⚠ Limited data  │
+│ ┌─────────────┐ │
+│ │ ℹ Standard  │ │ <- Recommendation
+│ │ checks pass │ │    Alert (compact)
+│ └─────────────┘ │
 │                 │
-│ [View Details]  │ <- Expandable
+│ 🔗 https://...  │ <- Ellipsized URL
+│                 │
+│ ✓ Good reputation│
+│ ✓ 24 year domain│ <- Key findings
+│ ✓ Valid SSL     │
+│ ✓ AI: legitimate│
+│                 │
+│ ▼ More Details  │ <- Expandable
+│ [Check Another] │ <- Primary action
 └─────────────────┘
 ```
+
+### URL Link Behavior Specification
+
+#### Interactive URL Link Component
+
+**Purpose:** Provide direct access to the analyzed URL with appropriate safety warnings
+
+**Visual Design:**
+- **Icon**: 🔗 link icon prefix
+- **Desktop**: Full URL displayed (e.g., "https://wikipedia.org/wiki/Example")
+- **Tablet**: Truncated with middle ellipsis (e.g., "https://wikipedia.org...Example")
+- **Mobile**: Domain or heavily truncated (e.g., "https://...")
+
+**Interaction Behavior:**
+
+| Risk Level | Score Range | Click Behavior | User Experience |
+|------------|-------------|----------------|-----------------|
+| **Safe** | 80-100 | Direct navigation | Opens URL immediately in new tab |
+| **Moderate** | 60-79 | Direct navigation | Opens URL immediately in new tab |
+| **Caution** | 40-59 | Warning dialog | Shows confirmation before navigation |
+| **High Risk** | 20-39 | Warning dialog | Shows strong warning before navigation |
+| **Danger** | 0-19 | Warning dialog | Shows critical warning before navigation |
+
+#### Warning Dialog Specification
+
+**For URLs with score < 60:**
+
+```
+┌─────────────────────────────────────────┐
+│ ⚠️ Security Warning                      │
+├─────────────────────────────────────────┤
+│ This website has failed security checks. │
+│ Visiting it may put your data at risk.   │
+│                                          │
+│ Score: 45/100 (CAUTION)                  │
+│                                          │
+│ Are you sure you want to continue?       │
+│                                          │
+│ [Cancel]        [Continue at Own Risk]   │
+└─────────────────────────────────────────┘
+```
+
+**Dialog Variants by Risk Level:**
+- **Caution (40-59)**: Yellow warning with moderate language
+- **High Risk (20-39)**: Orange warning with stronger language
+- **Danger (0-19)**: Red warning with critical language and additional disclaimers
+
+**Implementation Details:**
+- Uses shadcn Dialog component with AlertTriangle icon
+- Warning message adapts based on risk score
+- "Continue at Own Risk" button styled as destructive variant
+- Opens URL in new tab if user confirms
+- Tracks warning dialog interactions for analytics
 
 ### Component Visual Specifications
 
@@ -392,31 +470,38 @@ tooltips:
 
 ### Touch Interactions & Gestures
 
-#### Swipe Gestures
-- **Horizontal Swipe**: Switch between Simple/Technical views
+#### Touch Gestures
+- **Tap to Expand**: Tap accordion headers to reveal technical details
 - **Pull-to-Refresh**: Re-analyze current URL
 - **Long Press**: Copy URL or share results
 
 #### Mobile-Optimized Components
 
-##### Bottom Sheet Results Panel
+##### Unified Mobile Results Layout
 ```
 ┌─────────────────────┐
 │    URL Input Area   │ <- Fixed top
 ├─────────────────────┤
+│   ┌────────┐        │
+│   │   94   │        │ <- Gauge prominent
+│   │  SAFE  │        │
+│   └────────┘        │
 │                     │
-│   ┌─────────────┐   │
-│   │ Drag Handle │   │ <- Draggable
-│   └─────────────┘   │
+│ Safe to visit       │ <- Clear message
 │                     │
-│   Safety Score: 85  │ <- Collapsed view
-│   Status: SAFE      │
+│ ✓ Good reputation   │
+│ ✓ 24 year domain    │ <- Key findings
+│ ✓ Valid SSL         │
+│ ✓ AI: legitimate    │
 │                     │
-│   ↑ Swipe up for    │
-│     full details    │
+│ ▽ Technical Details │ <- Tap to expand
+│   Domain Info       │
+│   SSL Certificate   │
+│   Reputation Data   │
+│   AI Analysis       │
+│                     │
+│ [Check Another URL] │
 └─────────────────────┘
-
-[Expanded State - Full Screen]
 ```
 
 ##### Mobile Navigation Pattern
@@ -441,11 +526,12 @@ tooltips:
   </button>
 </div>
 
-// Swipeable Results Tabs
-<SwipeableViews index={activeTab} onChangeIndex={setActiveTab}>
-  <TabPanel value={0}>Simple View Content</TabPanel>
-  <TabPanel value={1}>Technical View Content</TabPanel>
-</SwipeableViews>
+// Unified Results with Expandable Sections
+<UnifiedResults>
+  <RiskGaugeSection score={score} status={status} />
+  <KeyFindingsSection findings={findings} />
+  <TechnicalAccordion sections={technicalData} />
+</UnifiedResults>
 ```
 
 ### Mobile Performance Optimizations
@@ -607,17 +693,60 @@ Headers:
 **shadcn Implementation:** Enhanced input component with real-time validation styling and integrated loading state
 
 #### Analysis Results Panel
-**Purpose:** Display comprehensive safety analysis with progressive disclosure
+**Purpose:** Display comprehensive safety analysis with progressive disclosure in a unified interface
+
+**Visual Hierarchy Structure:**
+- **Analysis Results** (H1): Primary section heading with maximum visual weight
+- **URL Security Report** (H3): Secondary section identifier 
+- **Domain Name** (H2): Prominently displayed extracted domain name
+- **Technical Analysis** (H3): Container for detailed technical information
+
+**Component Structure:**
+1. **Analysis Results Header** (H1): Primary section title with `text-4xl font-bold`
+2. **URL Security Report** (H3): Section identifier with `text-2xl font-semibold`
+3. **Domain Header** (H2): Extracted domain name with `text-3xl font-semibold`
+4. **Risk Gauge**: Visual circular progress with score and status
+5. **Recommendation Alert**: Dynamic alert based on risk level
+6. **URL Link**: Clickable link with appropriate safety warnings
+7. **Technical Analysis Section** (H3): Container for expandable technical details
+   - **Key Findings**: Subdued summary component (moved inside Technical Analysis)
+   - **Domain Information**: Expandable accordion section
+   - **SSL Certificate**: Expandable accordion section
+   - **Reputation Analysis**: Expandable accordion section
+   - **AI Content Analysis**: Expandable accordion section
 
 **Variants:**
-- Simple view (general users): Status badge, recommendation, key points
-- Technical view (developers): Expandable sections with raw data
+- **Desktop**: Full domain header, complete URL display, spacious layout
+- **Mobile**: Compact domain, ellipsized URL, condensed recommendation alert
 
 **States:** Loading, complete, error, partial results
 
-**Usage Guidelines:** Default to simple view, clear toggle to technical details
+**Usage Guidelines:** Domain and gauge always visible first, recommendation alert provides clear guidance, URL link includes safety warnings for risky sites
 
-**shadcn Implementation:** Combination of banner, status, tabs, and accordion components for structured information display
+**shadcn Implementation:** Combination of typography (H1 for Analysis Results, H3 for URL Security Report, H2 for domain), custom risk gauge, alert component for recommendations, button/link for URL, and accordion components for technical details
+
+**Key Findings Component Redesign:**
+- **Visual Positioning**: Moved inside Technical Analysis section as first expandable item
+- **Border Styling**: Replace prominent colored borders with subtle `border-gray-200 dark:border-gray-700`
+- **Vertical Spacing**: Reduce padding from `p-3` to `p-2` for more compact appearance  
+- **Typography**: 
+  - Finding titles: Downgrade from `text-sm font-medium` to `text-xs font-normal`
+  - Badge text: Maintain readability while reducing visual weight
+- **Background**: Use more subdued background colors with lower opacity (50% → 25%)
+- **Purpose**: Provide quick summary without overwhelming the main analysis flow
+
+**Technical Analysis Section Restructuring:**
+- **Section Header**: Use H3 styling (`text-2xl font-semibold`) with Technical Analysis icon
+- **Container Role**: Acts as parent container for all expandable technical details
+- **Child Components Order**:
+  1. **Key Findings** (redesigned as subdued summary)
+  2. **Domain Information** (existing accordion)
+  3. **SSL Certificate Analysis** (existing accordion) 
+  4. **Reputation Analysis** (existing accordion)
+  5. **AI Content Analysis** (existing accordion)
+  6. **Raw Analysis Data** (existing accordion)
+- **Progressive Disclosure**: Each item expands independently within the section
+- **Visual Grouping**: Consistent accordion styling with proper hierarchy indentation
 
 #### API Code Examples
 **Purpose:** Developer-friendly code snippets with easy copying
@@ -673,13 +802,23 @@ Headers:
 
 #### Type Scale
 
-| Element | Size | Weight | Line Height |
-|---------|------|--------|-------------|
-| H1 | `text-4xl (36px)` | `font-bold (700)` | `leading-tight (1.25)` |
-| H2 | `text-3xl (30px)` | `font-semibold (600)` | `leading-tight (1.25)` |
-| H3 | `text-2xl (24px)` | `font-semibold (600)` | `leading-snug (1.375)` |
-| Body | `text-base (16px)` | `font-normal (400)` | `leading-relaxed (1.625)` |
-| Small | `text-sm (14px)` | `font-normal (400)` | `leading-normal (1.5)` |
+| Element | Size | Weight | Line Height | Usage |
+|---------|------|--------|-------------|-------|
+| H1 | `text-4xl (36px)` | `font-bold (700)` | `leading-tight (1.25)` | Page titles, Analysis Results header |
+| H2 | `text-3xl (30px)` | `font-semibold (600)` | `leading-tight (1.25)` | Domain headers |
+| H3 | `text-2xl (24px)` | `font-semibold (600)` | `leading-snug (1.375)` | Section headings, URL Security Report |
+| Body | `text-base (16px)` | `font-normal (400)` | `leading-relaxed (1.625)` | Main content |
+| Small | `text-sm (14px)` | `font-normal (400)` | `leading-normal (1.5)` | Supporting text |
+
+**Domain Header Responsive Typography:**
+- **Desktop (≥1024px)**: H2 size - `text-3xl (30px)`, `font-semibold (600)`
+- **Tablet (640-1023px)**: H3 size - `text-2xl (24px)`, `font-semibold (600)`  
+- **Mobile (<640px)**: Large body - `text-lg (18px)`, `font-semibold (600)`
+
+**Domain Text Truncation:**
+- **Max width**: `max-w-md` for readability
+- **Overflow**: `text-overflow: ellipsis` with `overflow: hidden`
+- **Tooltip**: Show full domain on hover for truncated text
 
 ### Iconography
 
@@ -808,10 +947,16 @@ Headers:
 - Wide: Enhanced technical detail panels, additional context and educational content
 
 **Interaction Changes:**
-- Mobile: Touch-first design, 44px minimum touch targets, swipe gestures for tabs
-- Tablet: Hybrid touch/cursor support, medium-sized interactive elements
+- Mobile: Touch-first design, 44px minimum touch targets, tap to expand accordions
+- Tablet: Hybrid touch/cursor support, medium-sized interactive elements  
 - Desktop: Mouse-optimized hover states, keyboard shortcuts, precise click targets
 - Wide: Enhanced hover effects, additional interactive features for power users
+
+**URL Display Responsive Strategy:**
+- Mobile (≤639px): Show domain only or heavily truncated with "..." (e.g., "example.com" or "https://...")
+- Tablet (640-1023px): Middle ellipsis truncation preserving protocol and end (e.g., "https://example.com...page.html")
+- Desktop (1024-1535px): Full URL display up to reasonable length (~80 characters)
+- Wide (≥1536px): Complete URL display with no truncation
 
 ### Critical Responsive Considerations
 
@@ -821,9 +966,9 @@ Headers:
 - Desktop: Centered input with optimal width for URL display (~600px)
 
 **Results Display:**
-- Mobile: Stacked information with prominent safety status, minimal technical detail
-- Tablet: Tabbed interface switching between simple/technical views
-- Desktop: Side-by-side or expandable section layout for comprehensive view
+- Mobile: Domain header, compact gauge, condensed recommendation alert, ellipsized URL
+- Tablet: Balanced layout with medium-sized gauge and truncated URL display  
+- Desktop: Full domain header, complete URL display, spacious unified layout with all elements prominent
 
 **API Documentation:**
 - Mobile: Minimal code examples, copy buttons prominent, scrollable code blocks
@@ -885,11 +1030,11 @@ Headers:
 - **Easing:** `linear` for seamless morphing effect
 - **shadcn Implementation:** Custom skeleton components that match final content layout
 
-#### Tab Switching (Simple/Technical Views)
-- **Motion:** Content slide transition with staggered fade-in for new elements
-- **Duration:** 300ms for smooth context switching
-- **Easing:** `cubic-bezier(0.4, 0, 0.2, 1)` for polished interaction
-- **shadcn Implementation:** Enhanced tabs component with motion-effect for content areas
+#### Accordion Expand/Collapse (Technical Details)
+- **Motion:** Smooth height transition with content fade-in/out
+- **Duration:** 250ms for responsive feel without being jarring
+- **Easing:** `cubic-bezier(0.4, 0, 0.2, 1)` for natural expansion
+- **shadcn Implementation:** Enhanced accordion component with staggered content animation
 
 #### Copy Button Success Feedback
 - **Motion:** Scale pulse with checkmark icon transition
@@ -1363,16 +1508,18 @@ const formatScore = (score: number, locale: string) => {
 4. **Document any custom components:** Justify why shadcn components cannot be used
 
 **Component Development Priority:**
-1. Security Status Indicator (extends shadcn status)
-2. URL Input Field (enhanced shadcn input)
-3. Risk Score Display (custom rating component)
-4. Analysis Results Panel (composition of shadcn components)
-5. Loading States (multiple shadcn spinner variants)
+1. Risk Gauge Component (custom circular progress with score)
+2. Security Status Indicator (extends shadcn status with safety messaging)
+3. URL Input Field (enhanced shadcn input with validation)
+4. Unified Results Panel (composition with progressive disclosure)
+5. Technical Details Accordion (expandable shadcn accordion sections)
+6. Loading States (multiple shadcn spinner variants)
 
 **Key Integration Points:**
 - shadcn navbar-06 for primary navigation
 - motion-effect component for entrance animations
+- accordion component for technical details progressive disclosure
 - code-block and copy-button for API documentation
-- Enhanced tabs component for simple/technical view switching
+- alert component for recommendations and warnings
 
 This specification provides a comprehensive foundation for implementing a professional, accessible, and user-friendly security assessment tool that serves both general consumers and technical users effectively.
