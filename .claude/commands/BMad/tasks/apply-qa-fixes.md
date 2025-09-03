@@ -44,6 +44,7 @@ optional:
 - Lint and test commands available:
   - `deno lint`
   - `deno test -A`
+ - Implementation plan file exists: `{story-filename}-implementation-plan.md` next to the story file
 
 ## Process (Do not skip steps)
 
@@ -52,6 +53,8 @@ optional:
 - Read `bmad-core/core-config.yaml` and resolve `qa_root` and `story_root`
 - Locate story file in `{story_root}/{epic}.{story}.*.md`
   - HALT if missing and ask for correct story id/path
+- Verify `{story-filename}-implementation-plan.md` exists alongside the story
+  - HALT if missing and request the Dev to create it via `plan-story-impl`
 
 ### 1) Collect QA Findings
 
@@ -79,6 +82,7 @@ Guidance:
 
 - Prefer tests closing coverage gaps before/with code changes
 - Keep changes minimal and targeted; follow project architecture and TS/Deno rules
+- Align fixes with the implementation plan; if deviations are required, document them in the plan’s "Plan Amendments" and "Traceability" sections
 
 ### 3) Apply Changes
 

@@ -1,5 +1,5 @@
 version: 4.40.1
-installed_at: '2025-09-02T21:55:35.436Z'
+installed_at: '2025-09-03T22:27:25.054Z'
 install_type: full
 agent: null
 ides_setup:
@@ -172,7 +172,7 @@ files:
     hash: 7b95c09793f16e1a
     modified: false
   - path: .bmad-core/tasks/apply-qa-fixes.md
-    hash: aa6fefc78e6d7f08
+    hash: 058a65d45440d446
     modified: false
   - path: .bmad-core/tasks/advanced-elicitation.md
     hash: d39118bf32237a21
@@ -217,10 +217,10 @@ files:
     hash: f72074f1f1354871
     modified: false
   - path: .bmad-core/agents/dev.md
-    hash: f47bedfd8593f10b
+    hash: 81d4e29274176dfc
     modified: false
   - path: .bmad-core/agents/dev-junior.md
-    hash: 341a03ef2890fdb9
+    hash: 616a071045b5de59
     modified: false
   - path: .bmad-core/agents/bmad-orchestrator.md
     hash: 374701173ce61d73
@@ -229,7 +229,7 @@ files:
     hash: 4fb18b343f59ce3e
     modified: false
   - path: .bmad-core/agents/architect.md
-    hash: 4e7b28055a522dea
+    hash: c4c5719c4d33b6f5
     modified: false
   - path: .bmad-core/agents/analyst.md
     hash: 4b50870da75956b0
@@ -283,5 +283,5 @@ files:
     hash: 598ea2c53a9837b3
     modified: false
   - path: .bmad-core/agents/providers/claude/agent-template.md
-    hash: 72ca541793fdd63e
+    hash: 721d3cec3d1c4504
     modified: false
