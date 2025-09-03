@@ -58,26 +58,26 @@ const getIconForFinding = (finding: Finding) => {
   return Info
 }
 
-// Enhanced style configuration for better visual differentiation (Visual Improvement)
+// Subdued style configuration for reduced visual prominence (Phase 4)
 const getTypeStyles = (type: Finding['type'], severity: Finding['severity']) => {
   const baseStyles = {
     positive: {
       icon: "text-emerald-600 dark:text-emerald-400",
-      bg: "bg-emerald-50 dark:bg-emerald-950/20",
-      border: "border-emerald-200 dark:border-emerald-800",
-      badge: "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800"
+      bg: "bg-emerald-50/25 dark:bg-emerald-950/10",
+      border: "border-gray-200 dark:border-gray-700",
+      badge: "bg-emerald-100/50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800"
     },
     negative: {
       icon: severity === 'high' ? "text-red-700 dark:text-red-300" : "text-orange-600 dark:text-orange-400", 
-      bg: severity === 'high' ? "bg-red-50 dark:bg-red-950/20" : "bg-orange-50 dark:bg-orange-950/20",
-      border: severity === 'high' ? "border-red-200 dark:border-red-800" : "border-orange-200 dark:border-orange-800",
-      badge: severity === 'high' ? "bg-red-100 text-red-800 border-red-200 dark:bg-red-950/40 dark:text-red-300 dark:border-red-800" : "bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-950/40 dark:text-orange-300 dark:border-orange-800"
+      bg: severity === 'high' ? "bg-red-50/25 dark:bg-red-950/10" : "bg-orange-50/25 dark:bg-orange-950/10",
+      border: "border-gray-200 dark:border-gray-700",
+      badge: severity === 'high' ? "bg-red-100/50 text-red-800 border-red-200 dark:bg-red-950/40 dark:text-red-300 dark:border-red-800" : "bg-orange-100/50 text-orange-800 border-orange-200 dark:bg-orange-950/40 dark:text-orange-300 dark:border-orange-800"
     },
     neutral: {
       icon: "text-blue-600 dark:text-blue-400",
-      bg: "bg-blue-50 dark:bg-blue-950/20", 
-      border: "border-blue-200 dark:border-blue-800",
-      badge: "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800"
+      bg: "bg-blue-50/25 dark:bg-blue-950/10", 
+      border: "border-gray-200 dark:border-gray-700",
+      badge: "bg-blue-100/50 text-blue-800 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800"
     }
   }
   
@@ -140,7 +140,7 @@ export function KeyFindings({
             <div
               key={finding.id}
               className={cn(
-                "rounded-lg border p-3 transition-colors",
+                "rounded-lg border p-2 transition-colors",
                 styles.bg,
                 styles.border
               )}
@@ -157,7 +157,7 @@ export function KeyFindings({
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
                         <FindingIcon className={cn("h-3 w-3", styles.icon)} />
-                        <h4 className="font-medium text-sm text-foreground">
+                        <h4 className="font-normal text-xs text-foreground">
                           {finding.title}
                         </h4>
                         <Badge 

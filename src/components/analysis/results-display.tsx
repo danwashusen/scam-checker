@@ -8,10 +8,8 @@ import { ErrorBoundary } from "@/components/ui/error-boundary"
 import { TechnicalDetails } from "./technical-details"
 import { ShareExport } from "./share-export"
 import { DomainHeader } from "./domain-header"
-import { URLLink } from "./url-link"
 import { RecommendationAlert } from "./recommendation-alert"
 import { RiskGauge } from "./risk-gauge"
-import { KeyFindings } from "./key-findings"
 import { AnalysisResult, ShareMethod, ExportFormat } from "@/types/analysis-display"
 import { AlertTriangle, RotateCcw } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -168,10 +166,10 @@ export function ResultsDisplay({
         {/* Header with actions */}
         <div className="flex items-center justify-between">
           <div className="space-y-1">
-            <p className="text-sm text-muted-foreground">Analysis Results</p>
-            <h2 className="text-2xl font-semibold tracking-tight">
+            <h1 className="text-2xl font-bold leading-tight sm:text-3xl md:text-4xl">Analysis Results</h1>
+            <h3 className="text-lg font-semibold leading-snug sm:text-xl md:text-2xl">
               URL Security Report
-            </h2>
+            </h3>
           </div>
           
           <div className="flex items-center gap-2">
@@ -192,14 +190,11 @@ export function ResultsDisplay({
         <div className="space-y-4">
           <DomainHeader url={result.url} />
           <RiskGauge score={result.score} status={result.status} />
-          <RecommendationAlert score={result.score} status={result.status} />
-          <URLLink url={result.url} score={result.score} />
-          <KeyFindings 
-            findings={result.findings.filter(finding => finding.severity !== 'low').slice(0, 5)}
-            maxItems={5}
-            expandable={false}
+          <RecommendationAlert score={result.score} status={result.status} url={result.url} />
+          <TechnicalDetails 
+            result={result}
+            keyFindings={result.findings.filter(finding => finding.severity !== 'low').slice(0, 5)}
           />
-          <TechnicalDetails result={result} />
         </div>
       </div>
     </ErrorBoundary>

@@ -1,34 +1,88 @@
 "use client"
 
-import * as React from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
-import { 
-  Shield, 
-  Server, 
-  Lock, 
+import { cn } from '@/lib/utils'
+import { AnalysisResult, Finding } from '@/types/analysis-display'
+import {
   AlertCircle,
+  Brain,
   CheckCircle,
   Clock,
   Copy,
   Eye,
   Globe,
-  Brain
+  Lock,
+  Server,
+  Shield
 } from 'lucide-react'
-import { cn } from '@/lib/utils'
-import { AnalysisResult } from '@/types/analysis-display'
-
+import * as React from 'react'
 // Legacy interfaces - keeping for now but migrating to new types
 
 interface TechnicalDetailsProps {
   result?: AnalysisResult
   loading?: boolean
   className?: string
+  keyFindings?: Finding[]
 }
 
-// Component implementation continues...
+// Helper functions to categorize findings by technical section type
+
+/**
+ * Categorizes findings by technical section based on icon/content analysis
+ */
+const categorizeFindingsBySection = (findings: Finding[]) => {
+  const categories = {
+    domain: [] as Finding[],
+    ssl: [] as Finding[],
+    reputation: [] as Finding[],
+    ai: [] as Finding[],
+  }
+
+  findings.forEach(finding => {
+    const text = (finding.title + ' ' + finding.description).toLowerCase()
+    const icon = finding.icon?.toLowerCase()
+    
+    if (icon === 'domain' || icon === 'globe' || text.includes('domain') || text.includes('whois') || text.includes('age') || text.includes('registration')) {
+      categories.domain.push(finding)
+    } else if (icon === 'ssl' || icon === 'lock' || text.includes('ssl') || text.includes('certificate') || text.includes('https')) {
+      categories.ssl.push(finding)
+    } else if (icon === 'reputation' || icon === 'shield' || text.includes('reputation') || text.includes('security') || text.includes('threat') || text.includes('blacklist')) {
+      categories.reputation.push(finding)
+    } else if (icon === 'content' || icon === 'eye' || icon === 'brain' || text.includes('content') || text.includes('analysis') || text.includes('ai') || text.includes('pattern')) {
+      categories.ai.push(finding)
+    } else {
+      // Default to reputation for uncategorized security findings
+      categories.reputation.push(finding)
+    }
+  })
+
+  return categories
+}
+
+/**
+ * Gets the most significant finding for a section to display in the trigger
+ */
+const getMostSignificantFinding = (findings: Finding[]): Finding | null => {
+  if (findings.length === 0) return null
+  
+  // Priority: high negative > medium negative > positive > low negative/neutral
+  const sortedFindings = findings.sort((a, b) => {
+    // Prioritize by type and severity
+    const getWeight = (f: Finding) => {
+      if (f.type === 'negative' && f.severity === 'high') return 4
+      if (f.type === 'negative' && f.severity === 'medium') return 3
+      if (f.type === 'positive') return 2
+      return 1
+    }
+    
+    return getWeight(b) - getWeight(a)
+  })
+  
+  return sortedFindings[0]
+}
+
 
 const CopyButton = ({ text }: { text: string }) => {
   const [copied, setCopied] = React.useState(false)
@@ -61,83 +115,89 @@ export function TechnicalDetails({
   result,
   loading = false,
   className,
+  keyFindings,
 }: TechnicalDetailsProps) {
   
   if (loading) {
     return (
-      <Card className={cn('w-full', className)} data-testid="technical-view">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary" />
-            Loading Technical Details...
-          </CardTitle>
-          <CardDescription>
-            Gathering domain, SSL, and reputation information
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className="space-y-2">
-                <div className="h-6 bg-muted rounded animate-pulse" />
-                <div className="h-4 bg-muted rounded animate-pulse w-3/4" />
-                <div className="h-4 bg-muted rounded animate-pulse w-1/2" />
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      <div className={cn('w-full', className)} data-testid="technical-view">
+        <h3 className="text-lg font-semibold leading-snug sm:text-xl md:text-2xl flex items-center gap-2 mb-4">
+          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary" />
+          Loading Technical Details...
+        </h3>
+        <div className="space-y-4">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="space-y-2">
+              <div className="h-6 bg-muted rounded animate-pulse" />
+              <div className="h-4 bg-muted rounded animate-pulse w-3/4" />
+              <div className="h-4 bg-muted rounded animate-pulse w-1/2" />
+            </div>
+          ))}
+        </div>
+      </div>
     )
   }
 
   if (!result) {
     return (
-      <Card className={cn('w-full', className)} data-testid="technical-view">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Server className="h-5 w-5" />
-            Technical Analysis
-          </CardTitle>
-          <CardDescription>
-            Detailed technical information about the domain and security
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-8 text-muted-foreground">
-            <AlertCircle className="h-8 w-8 mx-auto mb-4 opacity-50" />
-            <p className="text-sm">
-              Technical analysis details will appear here after URL analysis is complete.
-            </p>
-            <p className="text-xs mt-2">
-              This component is ready for backend integration with existing analysis types.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+      <div className={cn('w-full', className)} data-testid="technical-view">
+        <h3 className="text-lg font-semibold leading-snug sm:text-xl md:text-2xl flex items-center gap-2 mb-4">
+          <Server className="h-5 w-5" />
+          Technical Analysis
+        </h3>
+        <div className="text-center py-8 text-muted-foreground">
+          <AlertCircle className="h-8 w-8 mx-auto mb-4 opacity-50" />
+          <p className="text-sm">
+            Technical analysis details will appear here after URL analysis is complete.
+          </p>
+          <p className="text-xs mt-2">
+            This component is ready for backend integration with existing analysis types.
+          </p>
+        </div>
+      </div>
     )
   }
 
   const technicalData = result.technicalData
 
+  // Categorize key findings by section for enhanced accordion triggers
+  const categorizedFindings = keyFindings ? categorizeFindingsBySection(keyFindings) : {
+    domain: [],
+    ssl: [],
+    reputation: [],
+    ai: []
+  }
+
+  // Get most significant finding for each section
+  const domainFinding = getMostSignificantFinding(categorizedFindings.domain)
+  const sslFinding = getMostSignificantFinding(categorizedFindings.ssl)
+  const reputationFinding = getMostSignificantFinding(categorizedFindings.reputation)
+  const aiFinding = getMostSignificantFinding(categorizedFindings.ai)
+
   return (
-    <Card className={cn('w-full', className)} data-testid="technical-view">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Server className="h-5 w-5" />
-          Technical Analysis
-        </CardTitle>
-        <CardDescription>
-          Detailed technical information about the domain and security
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
+    <div className={cn('w-full', className)} data-testid="technical-view">
+      <h3 className="text-lg font-semibold leading-snug sm:text-xl md:text-2xl flex items-center gap-2 mb-4">
+        <Server className="h-5 w-5" />
+        Technical Analysis
+      </h3>
+      <div className="mx-4">
         <Accordion type="multiple" className="w-full">
+          
           {/* Domain Age Section */}
           <AccordionItem value="domain">
             <AccordionTrigger className="hover:no-underline">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-1">
                 <Globe className="h-4 w-4" />
-                Domain Information
+                <div className="flex-1 text-left">
+                  <div>Domain Information</div>
+                  {domainFinding && (
+                    <div className="font-light text-muted-foreground">
+                      {domainFinding.description.length > 50 
+                        ? domainFinding.description.substring(0, 50) + '...'
+                        : domainFinding.description}
+                    </div>
+                  )}
+                </div>
                 <Badge 
                   variant={technicalData.domainAge.ageInDays > 365 ? 'default' : 'outline'} 
                   className={cn(
@@ -191,9 +251,18 @@ export function TechnicalDetails({
           {/* SSL Certificate Section */}
           <AccordionItem value="ssl">
             <AccordionTrigger className="hover:no-underline">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-1">
                 <Lock className="h-4 w-4" />
-                SSL Certificate
+                <div className="flex-1 text-left">
+                  <div>SSL Certificate</div>
+                  {sslFinding && (
+                    <div className="font-light text-muted-foreground">
+                      {sslFinding.description.length > 50 
+                        ? sslFinding.description.substring(0, 50) + '...'
+                        : sslFinding.description}
+                    </div>
+                  )}
+                </div>
                 {technicalData.ssl.isValid ? (
                   <Badge variant="default" className={cn(
                     "ml-2 bg-emerald-100 text-emerald-800 border-emerald-200",
@@ -268,9 +337,18 @@ export function TechnicalDetails({
           {/* Reputation Data Section */}
           <AccordionItem value="reputation">
             <AccordionTrigger className="hover:no-underline">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-1">
                 <Shield className="h-4 w-4" />
-                Reputation Analysis
+                <div className="flex-1 text-left">
+                  <div>Reputation Analysis</div>
+                  {reputationFinding && (
+                    <div className="font-light text-muted-foreground">
+                      {reputationFinding.description.length > 50 
+                        ? reputationFinding.description.substring(0, 50) + '...'
+                        : reputationFinding.description}
+                    </div>
+                  )}
+                </div>
                 <Badge 
                   variant={technicalData.reputation.overallRating === 'safe' ? 'default' : 
                           technicalData.reputation.overallRating === 'suspicious' ? 'outline' : 
@@ -319,9 +397,18 @@ export function TechnicalDetails({
           {/* AI Analysis Section */}
           <AccordionItem value="ai">
             <AccordionTrigger className="hover:no-underline">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-1">
                 <Brain className="h-4 w-4" />
-                AI Content Analysis
+                <div className="flex-1 text-left">
+                  <div>AI Content Analysis</div>
+                  {aiFinding && (
+                    <div className="font-light text-muted-foreground">
+                      {aiFinding.description.length > 50 
+                        ? aiFinding.description.substring(0, 50) + '...'
+                        : aiFinding.description}
+                    </div>
+                  )}
+                </div>
                 <Badge 
                   variant="outline" 
                   className={cn(
@@ -418,7 +505,7 @@ export function TechnicalDetails({
             </AccordionContent>
           </AccordionItem>
         </Accordion>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }
