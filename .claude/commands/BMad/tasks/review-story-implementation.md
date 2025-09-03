@@ -111,7 +111,7 @@ If the story involves ANY user interface or client-facing changes (web, mobile, 
 
 - Code comments quality and necessity
 - README updates if needed
-- API documentation completeness
+- API endpoint documentation completeness
 - Inline documentation for complex logic
 
 ### 3. Educational Feedback Generation

@@ -170,18 +170,18 @@ If the story involves ANY user interface or client-facing changes (web, mobile, 
 - Document how new code integrates with existing architecture
 - Plan for future extensibility and maintenance
 
-#### 3.2.4 API Contract Analysis
+#### 3.2.4 API Endpoint Contract Analysis
 
-- **CRITICAL**: Identify and document any proposed changes to API contracts between backend and frontend
+- **CRITICAL**: Identify and document any proposed changes to API endpoints including types/schemas, error contracts, states that may be exposed to third parties or a frontend
 - **For projects at v1.0.0+ (major releases)**: Analyze breaking change impact and upgrade paths
   - Document affected consumers and integration points
   - Plan backward compatibility strategies where feasible
   - Identify required user communication and migration documentation
   - **MANDATORY**: Mark breaking changes for explicit user verification before implementation
 - Document new API endpoints, modified request/response schemas, or removed interfaces
-- Specify API versioning strategy for changes (if applicable)
+- Specify API endpoint versioning strategy for changes (if applicable)
 - Note authentication, authorization, or rate limiting changes
-- Plan API documentation updates and change communication strategy
+- Plan API endpoint documentation updates and change communication strategy
 
 ### 3.3 Define Component Structure
 

@@ -141,9 +141,9 @@ If the story involves ANY UI/client changes:
 
 - For each Acceptance Criterion (AC), confirm that implemented code maps to the test IDs and modules declared in the implementation plan's Traceability Matrix
 - If an AC has no mapped tests or modules, add a question (junior) or add a Plan Amendment (senior) and resolve before proceeding
-- **API Contract Validation**: Verify that any API contract changes between backend and frontend are documented in the implementation plan's "API Contract Changes" section
-  - For junior developers: If undocumented API changes are detected, halt and raise a question to the Senior Developer
-  - For senior developers: If undocumented API changes are needed, update the implementation plan's "API Contract Changes" section before proceeding
+- **API Endpoint Contract Validation**: Verify that any API endpoint contract changes between backend and frontend are documented in the implementation plan's "API Contract Changes" section
+  - For junior developers: If undocumented API endpoint changes are detected, halt and raise a question to the Senior Developer
+  - For senior developers: If undocumented API changes are needed, update the implementation plan's "API Endpoint Contract Changes" section before proceeding
 
 #### 3.1.b Project Structure Compliance (All Developers)
 
@@ -165,7 +165,7 @@ If the story involves ANY UI/client changes:
 - If debugging takes >30 minutes: Document issue and ask for help
 - Timebox: If a single task exceeds 45 minutes or 2 failed attempts, add a question and halt that task
 - Dependencies: Do not introduce any new dependencies unless explicitly whitelisted in the plan's Dependency Policy; otherwise, add a question and halt
-- **API Contracts**: **MUST NOT** change API contracts between backend and frontend unless the change is specifically documented in the implementation plan's "API Contract Changes" section; if this scenario is encountered, raise a question to the Senior Developer and halt that task
+- **API Endpoint Contracts**: **MUST NOT** change API endpoint contracts unless the change is specifically documented in the implementation plan's "API Endpoint Contract Changes" section; if this scenario is encountered, raise a question to the Senior Developer and halt that task
 
 #### 3.3 Code Quality Standards
 
@@ -221,7 +221,7 @@ If the story involves ANY UI/client changes:
 - Confidence < 80% on technical decision
 - 2+ failures attempting same task
 - Ambiguous requirement not covered in plan
-- Unauthorized API contract changes not documented in implementation plan
+- Unauthorized API endpoint contract changes not documented in implementation plan
 
 ### 6. Completion Criteria
 
