@@ -40,7 +40,7 @@ optional:
 - Lint and test commands available:
   - `deno lint`
   - `deno test -A`
- - Implementation plan file exists: `{story-filename}-implementation-plan.md` next to the story file
+- Implementation plan file exists: `{story-filename}-implementation-plan.md` next to the story file
 
 ## Process (Do not skip steps)
 
